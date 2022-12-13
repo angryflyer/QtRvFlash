@@ -16,11 +16,13 @@ SOURCES += \
     $$PWD/src/flashcfg.cpp \
     $$PWD/src/flashthread.cpp \
     $$PWD/src/console.cpp \
+    $$PWD/src/rvlink_ftd2xx.cpp \
     $$PWD/src/flashrom.cpp \
     $$PWD/src/flashcfg.cpp \
     $$PWD/src/stdafx.cpp \
     $$PWD/main.cpp \
-    $$PWD/mainwindow.cpp
+    $$PWD/mainwindow.cpp \
+    src/mytime.cpp
 
 
 HEADERS += \
@@ -29,6 +31,7 @@ HEADERS += \
     $$PWD/include/console.h \
     $$PWD/include/stdafx.h \
     $$PWD/include/targetver.h \
+    $$PWD/include/rvlink_ftd2xx.h \
     $$PWD/include/flashrom.h \
     $$PWD/include/flashcfg.h \
     $$PWD/include/sw_header.h \
@@ -39,7 +42,8 @@ HEADERS += \
     $$PWD/include/station_sdio.h \
     $$PWD/include/station_slow_io.h \
     $$PWD/include/ftd2xx.h \
-    $$PWD/mainwindow.h
+    $$PWD/mainwindow.h \
+    include/mytime.h
 
 FORMS += \
     mainwindow.ui

@@ -18,6 +18,7 @@
 #include "console.h"
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
+#include "rvlink_ftd2xx.h"
 #include "flashrom.h"
 
 MainWindow::MainWindow(QWidget *parent)
@@ -110,6 +111,17 @@ void MainWindow::on_pushButtonRead_clicked()
     ui->progressBar->setRange(0, dwLegth);
     my_thread->start();
 }
+
+//void MainWindow::on_pushButtonRead_clicked()
+//{
+//    ULONGLONG data;
+//    ULONGLONG addr = flashCtl.address;
+//    ft_dev_init(waitfreq);
+////    ReadDataAndCheckACK(addr, &data, 40, 64);
+//    rv_read(addr, &data);
+//    ft_close();
+//    ui->console->LOGI( "read address=0x%x, read data=0x%llx\n", addr, data);
+//}
 
 void MainWindow::on_pushButtonErase_clicked()
 {
@@ -709,13 +721,13 @@ bool MainWindow::checkConnect()
     BYTE ft_connect_count = 0;
     static time_t ltime;
 
-    ft_status = ft_device_init(waitfreq);
+    ft_status = ft_dev_init(waitfreq);
     ft_status |= ft_close();
 
     //try to recover when connect fail
     while(false == ft_status)
     {
-        ft_status = ft_device_init(waitfreq);
+        ft_status = ft_dev_init(waitfreq);
         ft_status |= ft_close();
         ft_connect_count ++;
         if(ft_connect_count == 3)
@@ -756,6 +768,7 @@ bool MainWindow::checkConnect()
     while(ft_connect_count < 3)
     {
         flashCtl.connectStatus = chipConnect();
+//        flashCtl.connectStatus = true;
         if (true == flashCtl.connectStatus) {
             break;
         }
