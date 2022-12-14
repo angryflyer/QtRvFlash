@@ -210,14 +210,14 @@ BYTE InputDataHandle(ULONGLONG *dwDataHandled, rcvdat *dwAckData, BYTE *InputDat
 
 //	RotateLeft(dwDataTemp,InputDataLenth,(dwSeekCount * 8 + dwDataBitCount + 2));//dwSeekCount bytes, remove bits start && ack bit
 	RotateLeft(&dwDataTemp[dwSeekCount],InputDataLenth-dwSeekCount,dwDataBitCount + 2);//dwSeekCount bytes, remove bits start && ack bit
-    if(rwType == dwTesioReadFlag)
+    if((rwType & 0x01) == dwTesioReadFlag)
 	{
 		for(dwCount=0; dwCount < 8; dwCount ++)
 		{	
 //                printf("dwDataTemp[%d]=0x%llx\n",dwSeekCount+dwCount,dwDataTemp[dwSeekCount+dwCount]);
                 *dwDataHandled = (*dwDataHandled << 8 | dwDataTemp[dwSeekCount+dwCount]);
 		}
-        dwAckData->parity = (dwDataTemp[dwSeekCount + 8] >> 7);
+        dwAckData->parity = (dwDataTemp[dwSeekCount + (rwType >> 1)] >> 7);
 	}
 	else
 	{
@@ -569,7 +569,7 @@ BOOL WriteDataAndCheckACK(ULONGLONG dwAddr,ULONGLONG dwData,BYTE dwAddrBitW,BYTE
 		// ltime = time(NULL);
 		// fprintf(stderr, "Start InputDataHandle @ %s\n", asctime(localtime(&ltime)));
 
-		InputDataHandle(&dwDataTemp, &rcvdata, InputBuffer, dwNumBytesRead, dwTesioWriteFlag);                   //Handle received data
+        InputDataHandle(&dwDataTemp, &rcvdata, InputBuffer, dwNumBytesRead, dwTesioWriteFlag | (dwDataW << 1));                   //Handle received data
         dwGetAck = rcvdata.ack;
 
 		// ltime = time(NULL);
@@ -728,7 +728,7 @@ BOOL ReadDataAndCheckACK(ULONGLONG dwAddr, ULONGLONG *dwGetData, BYTE dwAddrBitW
 //        *ptNum = dwNumBytesRead;
 //        memcpy(ptBuffer,InputBuffer,dwNumBytesRead);
         ////////////////////////////////////////////////////////////
-        InputDataHandle(&dwData, &rcvdata, InputBuffer, dwNumBytesRead, dwTesioReadFlag);
+        InputDataHandle(&dwData, &rcvdata, InputBuffer, dwNumBytesRead, dwTesioReadFlag | (dwDataW << 1));
         dwGetAck = rcvdata.ack;
 
     //  printf("Read dwGetAck=%d\n",dwGetAck);

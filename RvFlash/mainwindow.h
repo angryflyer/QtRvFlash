@@ -80,6 +80,8 @@ private slots:
 
     void on_lineEditAddress_editingFinished();
 
+    void on_lineEditDir_editingFinished();
+
     void on_checkBoxErase_stateChanged(int arg1);
 
     void on_checkBoxProgram_stateChanged(int arg1);
@@ -107,6 +109,7 @@ private:
     QTime baseTime;
     QString showStr;
 //    Console *m_console = nullptr;
-
+    char *write_buffer;
+    char *read_buffer;
 };
 #endif // MAINWINDOW_H

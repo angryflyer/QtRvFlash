@@ -1,6 +1,7 @@
 #include "flashcfg.h"
 
 flashCtrl flashCtl;
+sysCtrl   sysCtl;
 
 void flashctl_reset(void)
 {

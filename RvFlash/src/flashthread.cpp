@@ -11,6 +11,12 @@ FlashThread::FlashThread(MainWindow* creator, QObject* parent) : QThread(parent)
 void FlashThread::run()
 {
     emit progress(0, "", (flashtimer | threadstart));
+    if(flashCtl.proj == 1)
+    {
+        ft_open();
+        sysHoldReset();
+        ft_close();
+    }
 
     if(true == flashCtl.eraseFlag)
     {
@@ -36,6 +42,14 @@ void FlashThread::run()
     flashctl_reset();
     //recover filesize value
     flashCtl.fileSize = flashCtl.currentfileSize;
+
+    if(flashCtl.proj == 1)
+    {
+        ft_open();
+        sysSetPc();
+        sysReleaseReset();
+        ft_close();
+    }
 
     ft_open();
     process_reset();
@@ -115,27 +129,15 @@ void FlashThread::flashErase()
 BOOL FlashThread::flashWrite()
 {
     ULONGLONG dwLegth = filesize64;
-    ULONGLONG wdata_buffer[mtpsize / 8];
-    ULONGLONG* wdata_temp = (ULONGLONG* )flashCtl.mtpWriteBuffer;
     ULONGLONG i = 0;
     BOOL rvStatus = FALSE;
-
-    for(i = 0; i < dwLegth; i++)
-    {
-        wdata_buffer[i] = 0xffffffffffffffff;
-    }
-
-    for(i = 0; i < dwLegth; i++)
-    {
-        wdata_buffer[i] = wdata_temp[i];
-    }
 
     ft_open();
 
     emit progress(i, "Start Writing file.bin to memory @ %s\n", (writetype | threadstart));
     for (i = 0; i < dwLegth; i++)
     {
-        rvStatus = rv_write(flashCtl.address + i * 8, wdata_buffer[i]);
+        rvStatus = rv_write(flashCtl.address + i * 8, flashCtl.writeBufferAddr[i]);
         if(FALSE == rvStatus) {
             break;
         }
@@ -156,22 +158,13 @@ BOOL FlashThread::flashWrite()
 
 BOOL FlashThread::flashReadOut()
 {
-    ULONGLONG dwLegth = ceil((float)mtplenth / 8);
-
-    ULONGLONG rdata_buffer[mtpsize / 8];
-
-    ULONGLONG* rdata_temp = (ULONGLONG* )flashCtl.readOutBuffer;
+    ULONGLONG dwLegth = filesize64;
 
     ULONGLONG i = 0;
 
     BOOL rvStatus = FALSE;
 
     ULONGLONG rdata;
-
-    for(i = 0; i < dwLegth; i++)
-    {
-        rdata_buffer[i] = 0xffffffffffffffff;
-    }
 
     ft_open();
 
@@ -187,7 +180,7 @@ BOOL FlashThread::flashReadOut()
     }
     for (i = 0; i < dwLegth; i++)
     {
-        rvStatus = rv_read(flashCtl.address + i * 8, &rdata_buffer[i]);
+        rvStatus = rv_read(flashCtl.address + i * 8,&flashCtl.readBufferAddr[i]);
 
         if(FALSE == rvStatus) {
             break;
@@ -202,11 +195,9 @@ BOOL FlashThread::flashReadOut()
         emit progress(i, "Working...\n", readouterror | threadworking);
         Sleep(20);
         return FALSE;
-    } else {
-        for(i = 0; i < dwLegth; i++)
-        {
-           rdata_temp[i] = rdata_buffer[i];
-        }
+    }
+    else
+    {
         emit progress(dwLegth, "Done Reading data out from memory @ %s\n", (readouttype | threadend));
     }
 
@@ -217,20 +208,11 @@ BOOL FlashThread::flashRead()
 {
     ULONGLONG dwLegth = filesize64;;
 
-    ULONGLONG rdata_buffer[mtpsize / 8];
-
-    ULONGLONG* rdata_temp = (ULONGLONG* )flashCtl.mtpReadBuffer;
-
     ULONGLONG i = 0;
 
     BOOL rvStatus = FALSE;
 
     ULONGLONG rdata;
-
-    for(i = 0; i < (mtpsize / 8); i++)
-    {
-        rdata_buffer[i] = 0xffffffffffffffff;
-    }
 
     ft_open();
 
@@ -245,7 +227,7 @@ BOOL FlashThread::flashRead()
     }
     for (i = 0; i < dwLegth; i++)
     {
-        rvStatus = rv_read(flashCtl.address + i * 8, &rdata_buffer[i]);
+        rvStatus = rv_read(flashCtl.address + i * 8, &flashCtl.readBufferAddr[i]);
         if(FALSE == rvStatus) {
             break;
         }
@@ -259,13 +241,8 @@ BOOL FlashThread::flashRead()
 //        emit progress(i, "Working...\n", readerror | threadworking);
         Sleep(20);
         return FALSE;
-    } else {
-        for(i = 0; i < dwLegth; i++)
-        {
-           rdata_temp[i] = rdata_buffer[i];
-        }
     }
-    //emit progress(i, "Done Reading data from memory @ %s\n", readtype | threadend);
+    emit progress(i, "Done Reading data from memory @ %s\n", readtype | threadend);
     return TRUE;
 }
 
@@ -283,7 +260,7 @@ BOOL FlashThread::flashVerify()
     if(TRUE == rvStatus) {
         for (i = 0; i < flashCtl.fileSize; i++)
         {
-            if (flashCtl.mtpReadBuffer[i] == flashCtl.mtpWriteBuffer[i])
+            if (flashCtl.readBufferAddr[i] == flashCtl.writeBufferAddr[i])
             {
                 cmp_flag = TRUE;
                 //fprintf(stderr, "printf Verifing data from memory @ addr 0x%llx, rdata @ 0x%x, wdata @ 0x%x\n", flashCtl.address + i, flashCtl.mtpReadBuffer[i],flashCtl.mtpWriteBuffer[i]);

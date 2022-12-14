@@ -19,20 +19,28 @@ void process_reset(void);
 BOOL rv_read(ULONGLONG addr, ULONGLONG *data)
 {
     ULONGLONG rdata = 0;
+    ULONGLONG rdataH= 0;
     BOOL rvStatus = TRUE;
     BYTE dwCount = 1;
+    BYTE addrBitW = 40;
+    BYTE dataBitW = 64;
+    addrBitW = (flashCtl.proj == 0) ? 40 : 32;
+    dataBitW = (flashCtl.proj == 0) ? 64 : 32;
     //struct timeval tvpre, tvafter;
     //gettimeofday(&tvpre, NULL);
     do
     {
-        rvStatus = ReadDataAndCheckACK(addr, &rdata, 40, 64);
+        rdata = 0;
+        rdataH= 0;
+        rvStatus  = ReadDataAndCheckACK(addr, &rdata, addrBitW, dataBitW);
+        rvStatus &= (flashCtl.proj == 0) ? rvStatus : ReadDataAndCheckACK(addr + 4, &rdataH, addrBitW, dataBitW);
         dwCount--;
         if (dwCount == 0)
         {
             break;
         }
     } while (rvStatus == FALSE);
-    *data = rdata;
+    *data = (rdataH << 32 | rdata);
 //    fprintf(stderr, "*data=0x%llx\n", *data);
     //gettimeofday(&tvafter, NULL);
     //fprintf(stderr, "Timediff=%dus\n", (tvafter.tv_usec-tvpre.tv_usec));
@@ -42,10 +50,14 @@ BOOL rv_read(ULONGLONG addr, ULONGLONG *data)
 BOOL rv_write(ULONGLONG addr, ULONGLONG data)
 {
     BOOL rvStatus;
+    BYTE addrBitW = 40;
+    BYTE dataBitW = 64;
+    addrBitW = (flashCtl.proj == 0) ? 40 : 32;
+    dataBitW = (flashCtl.proj == 0) ? 64 : 32;
     //struct timeval tvpre,tvafter;
     //gettimeofday(&tvpre, NULL);
-
-    rvStatus = WriteDataAndCheckACK(addr, data, 40, 64);
+    rvStatus  = WriteDataAndCheckACK(addr, data, addrBitW, dataBitW);
+    rvStatus &= (flashCtl.proj == 0) ? rvStatus : WriteDataAndCheckACK(addr + 4, data >> 32, addrBitW, dataBitW);
 
     //gettimeofday(&tvafter, NULL);
     //fprintf(stderr, "Timediff=%dus\n", (tvafter.tv_usec-tvpre.tv_usec));
@@ -98,21 +110,6 @@ BOOL chipConnect(void)
 
         rvStatus |= rv_write(STATION_SLOW_IO_SCU_IC_DC_MODE_ADDR, 0x03); // 0K IC + 64K DC
         usleep(10 * 1000);
-//        rvStatus |= rv_read(STATION_DMA_MTIME_EN_ADDR, &value);
-//        //fprintf(stderr, "mtimeen = 0x%llx \n", value);
-//        rvStatus |= rv_write(STATION_DMA_MTIME_EN_ADDR, 0);
-//        rvStatus |= rv_read(STATION_DMA_MTIMECMP_VP_0_ADDR, &mtimecmp_v);
-//        //fprintf(stderr, "mtimecmp = 0x%llx \n", mtimecmp_v);
-//        rvStatus |= rv_read(STATION_DMA_MTIME_ADDR, &mtime_v);
-//        //fprintf(stderr, "mtime = 0x%llx \n", mtime_v);
-//        //rvStatus = rv_write(STATION_DMA_MTIME_ADDR, mtimecmp_v - 1);
-//        rvStatus |= rv_write(STATION_DMA_MTIMECMP_VP_0_ADDR, mtime_v+1);
-
-//        rvStatus |= rv_read(STATION_ORV32_MIE_ADDR, &mie_backup);
-//        //fprintf(stderr, "mie = 0x%llx \n", mie_backup);
-//        value = mie_backup &(~0x80); //disable mtie
-//        //fprintf(stderr, "value = 0x%llx \n", value);
-//        rvStatus |= rv_write(STATION_ORV32_MIE_ADDR, value);
     }
 
     rvStatus |= rv_read(STATION_DMA_SYSTEM_CFG_ADDR, &rdata);
@@ -225,4 +222,56 @@ BOOL flashRead(ULONGLONG dwAddr, BYTE* dwGetData, ULONGLONG dwLegth)
     fprintf(stderr, "Done Reading data from MTP @ %s\n", asctime(localtime(&ltime)));
     fprintf(stderr, "Do Read rdata_temp[0] from MTP @ %llx\n", rdata_temp[0]);
     return true;
+}
+
+BOOL sysHoldReset()
+{
+    BOOL rvStatus = 0;
+    ULONGLONG rdata = 0;
+    BYTE dwCount  = 1;
+    BYTE addrBitW = 32;
+    BYTE dataBitW = 32;
+    if(flashCtl.proj == 1)
+    {
+        do
+        {
+            rdata = 0;
+            rvStatus  = ReadDataAndCheckACK(sysCtl.rstAddr, &rdata, addrBitW, dataBitW);
+            dwCount--;
+            if (dwCount == 0)
+            {
+                break;
+            }
+        } while (rvStatus == FALSE);
+        rdata    = (rdata & 0x7fffffe0) | 0x8000001f;
+        rvStatus &= WriteDataAndCheckACK(sysCtl.rstAddr, rdata, addrBitW, dataBitW);
+    }
+
+    return rvStatus;
+}
+
+BOOL sysReleaseReset()
+{
+    BOOL rvStatus = 0;
+    BYTE addrBitW = 32;
+    BYTE dataBitW = 32;
+    if(flashCtl.proj == 1)
+    {
+        rvStatus = WriteDataAndCheckACK(sysCtl.rstAddr, 0x80000000, addrBitW, dataBitW);
+    }
+
+    return rvStatus;
+}
+
+BOOL sysSetPc()
+{
+    BOOL rvStatus = 0;
+    BYTE addrBitW = 32;
+    BYTE dataBitW = 32;
+    if(flashCtl.proj == 1)
+    {
+        rvStatus = WriteDataAndCheckACK(sysCtl.pcAddr, sysCtl.pcValue, addrBitW, dataBitW);
+    }
+
+    return rvStatus;
 }
