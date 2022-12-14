@@ -1073,6 +1073,40 @@ bool MainWindow::configInit()
         flashCtl.autoVerifyFlag = false;
     }
 
+//    DWORD numDevs;
+//    FT_DEVICE_LIST_INFO_NODE* devInfo;
+//    FT_STATUS ftStatus;
+//    ftStatus = FT_CreateDeviceInfoList(&numDevs);
+//    if (ftStatus == FT_OK)
+//    {
+//        ui->console->LOGI("Number of devices is %d\n", numDevs);
+//    }
+//    else
+//    {
+//        ui->console->LOGI("FT_CreateDeviceInfoList failed \n");// FT_CreateDeviceInfoList failed
+//    }
+
+//    if (numDevs > 0)
+//    {
+//        // allocate storage for list based on numDevs
+//        devInfo = (FT_DEVICE_LIST_INFO_NODE*)malloc(sizeof(FT_DEVICE_LIST_INFO_NODE) * numDevs);
+//        // get the device information list
+//        ftStatus = FT_GetDeviceInfoList(devInfo, &numDevs);
+//        if (ftStatus == FT_OK)
+//        {
+//            for (DWORD i = 0; i < numDevs; i++)
+//            {
+//                ui->console->LOGI("Dev %d:\n", i);
+//                ui->console->LOGI("Flags=0x%x\n", devInfo[i].Flags);
+//                ui->console->LOGI("Type=0x%x\n", devInfo[i].Type);
+//                ui->console->LOGI("ID=0x%x\n", devInfo[i].ID);
+//                ui->console->LOGI("LocId=0x%x\n", devInfo[i].LocId);
+//                ui->console->LOGI("SerialNumber=%s\n", devInfo[i].SerialNumber);
+//                ui->console->LOGI("Description=%s\n", devInfo[i].Description);
+//                ui->console->LOGI("ftHandle=0x%x\n", devInfo[i].ftHandle);
+//            }
+//        }
+//    }
     return true;
 }
 

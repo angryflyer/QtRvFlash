@@ -239,7 +239,7 @@ BOOL ft_dev_init(DWORD speed)
 	//////////////////////////////////////////////////////////////////
 	
 	DWORD dwCount;
-	DWORD devIndex = 0;
+    DWORD devIndex = 0;
 	char Buf[64];
 //	init linux envrionment
 	// system("sudo lsmod | grep ftdi_sio");//avoid conflict
