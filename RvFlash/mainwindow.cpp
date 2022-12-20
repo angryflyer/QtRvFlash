@@ -1,6 +1,7 @@
 ﻿#include <QFile>
 #include <QFileDialog>
 #include <QTextStream>
+#include <QTextBlock>
 #include <QMessageBox>
 #include <QDateTime>
 #include <QtPrintSupport/qtprintsupportglobal.h>
@@ -20,6 +21,10 @@
 #include "./ui_mainwindow.h"
 #include "rvlink_ftd2xx.h"
 #include "flashrom.h"
+// for debug
+#include <vector>
+#include <iostream>
+#include <map>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -30,6 +35,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     write_buffer = new char[bufsize];
     read_buffer  = new char[bufsize];
+//    cmd_buffer   = new char[1000];
 
     flashCtl.writeBufferAddr = (ULONGLONG*)write_buffer;
     flashCtl.readBufferAddr  = (ULONGLONG*)read_buffer;
@@ -46,7 +52,11 @@ MainWindow::MainWindow(QWidget *parent)
 
     timerElapsedLable = new QLabel(this);
 
+    m_usb_listener = new usb_listener();
+
     qRegisterMetaType<uint64_t>("uint64_t");
+
+    qApp->installNativeEventFilter(m_usb_listener);
 
     //initial default flash address
     //connect(ui->lineEditAddress, &QLineEdit::editingFinished, this, &MainWindow::on_lineEditAddress_editingFinished);
@@ -65,6 +75,18 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(mstimer,SIGNAL(timeout()),this,SLOT(timerElapsed()));
 
+    connect(ui->console, &Console::getData, this, &MainWindow::consoleDebug);
+
+    connect(m_usb_listener, &usb_listener::DevicePlugOut, [=](){
+        //do something...
+        if(~ft_listdevices) {
+            cmd_debug = false;
+            ui->console->LOGI("Device Plug Out!\n>>");
+        }
+//        qDebug("do something...");
+
+    });
+
     QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8")); //设置编码
 
     RvFlashInit();
@@ -77,6 +99,10 @@ MainWindow::~MainWindow()
     delete stimer;
     delete timeDataLable;
     delete statusLabel;
+    delete m_usb_listener;
+    delete write_buffer;
+    delete read_buffer;
+//    delete cmd_buffer;
 }
 
 void MainWindow::on_pushButtonExit_clicked()
@@ -237,8 +263,8 @@ void MainWindow::open()
     //filesize up to mtpsize
     if(flashCtl.fileSize > mtpsize)
     {
-//        QMessageBox::critical(NULL,QStringLiteral("警告！"),QStringLiteral("仅显示前64KB数据！"),QStringLiteral("确定"));
-        QMessageBox::critical(NULL,QStringLiteral("Warning！"),QStringLiteral("Only display 64KB data！"),QStringLiteral("Confirm"));
+//        QMessageBox::information(NULL,QStringLiteral("通知！"),QStringLiteral("仅显示前64KB数据！"),QStringLiteral("确定"));
+        QMessageBox::information(NULL,QStringLiteral("Notice！"),QStringLiteral("Only display 64KB data！"),QStringLiteral("Confirm"));
         display_size = mtpsize;
     } else
     {
@@ -1000,8 +1026,207 @@ void MainWindow::consoleInit()
     ui->textEdit->setReadOnly(true);
 }
 
+void MainWindow::consoleDebug(const QByteArray &data)
+{
+    bool cmd_valid = false;
+    bool rvStatus  = false;
+    char cmd_buffer[100];
+    const char *debug_buffer = "debug";
+//    BYTE *ft_mode;
+
+    memset(cmd_buffer, 0, 100);
+//    ui->textEdit->insertPlainText(QString("plug test!\n"));
+    ui->console->putData(data);
+//    ui->console->LOGI("0x%x",*(data.data()));
+    if(cmd_buffer_index > 100) {
+        cmd_valid = true;
+        cmd_buffer_index = 0;
+    } else if(*(data.data()) == '\r') {
+        cmd_valid = true;
+        QString str;
+        ULONGLONG lineCount = 0;
+        //获取总行数
+        lineCount = ui->console->document()->lineCount();
+//        ui->console->LOGI("lineCount=%d\n",lineCount);
+        //输出某行内容
+        if(lineCount >= 2) {
+            str = ui->console->document()->findBlockByLineNumber(lineCount-2).text();
+        }
+//        //only for debug
+//        ui->textEdit->insertPlainText(str.append('\r'));
+        if(cmd_debug == false) {
+            ui->console->LOGI(">>");
+        }
+//        ui->textEdit->insertPlainText(str.append('\r'));
+//        cmd_buffer[cmd_buffer_index++] = '\0';
+//        cmd_buffer_index = 0;
+        QByteArray cmdBuf = str.toLocal8Bit();
+        if(0 == memcmp(cmdBuf.data(), debug_buffer, strlen(debug_buffer))) {
+            memcpy(cmd_buffer, cmdBuf.data(), strlen(cmdBuf.data()));
+        } else {
+            memcpy(cmd_buffer, &cmdBuf.data()[2] , strlen(cmdBuf.data()));
+        }
+    } else {
+        cmd_valid = false;
+//        cmd_buffer[cmd_buffer_index++] = *(data.data());
+    }
+
+    std::string cmd;
+    std::string delimiter = " ";
+    size_t pos = 0;
+    std::vector <std::string> tokenQ;
+    if(cmd_valid == true)
+    {
+        cmd = cmd_buffer;
+
+        while ((pos = cmd.find(delimiter)) != std::string::npos) {
+            tokenQ.push_back(cmd.substr(0, pos));
+            cmd.erase(0, pos + delimiter.length());
+        }
+        if (!cmd.empty()) {
+            tokenQ.push_back(cmd);
+        }
+
+        if(!cmd.empty() && (tokenQ.size() != 0)){
+            ui->console->cmd_status = 0;
+            memset(ui->console->cmd_buffer[ui->console->cmd_buffer_index], 0, 100);
+            memcpy(ui->console->cmd_buffer[ui->console->cmd_buffer_index], cmd_buffer, strlen(cmd_buffer));
+            ui->console->cmd_record_index = ui->console->cmd_buffer_index;
+            if(ui->console->cmd_record_index_max < 9) {
+                ui->console->cmd_record_index_max = ui->console->cmd_buffer_index;
+            } else {
+                ui->console->cmd_record_index_max = 9;
+            }
+//            QString print_buf_index;
+//            QString print_record_index_max;
+//            print_buf_index = print_buf_index.sprintf("cmd_buffer_index=%d\n",ui->console->cmd_buffer_index);
+//            print_record_index_max = print_record_index_max.sprintf("cmd_record_index_max=%d\n",ui->console->cmd_record_index_max);
+//            ui->textEdit->insertPlainText(print_buf_index);
+//            ui->textEdit->insertPlainText(print_record_index_max);
+            if(ui->console->cmd_buffer_index >= 9) {
+                ui->console->cmd_buffer_index = 0;
+            } else {
+                ui->console->cmd_buffer_index = ui->console->cmd_buffer_index + 1;
+            }
+        }
+
+        if ((tokenQ.size() == 1) && (tokenQ[0] == "debug")) {
+            if(ft_dev_init(waitfreq)) {
+                cmd_debug = true;
+            } else {
+                cmd_debug = false;
+                ui->console->LOGI("Connect failed!\n");
+                ui->console->LOGI(">>");
+            }
+            ft_close();
+        }
+    }
+
+    if(cmd_debug == true)
+    {
+        if(cmd_valid == true)
+        {
+            rvStatus  = ft_open();
+            if ((tokenQ.size() == 1) && (tokenQ[0] == "reset")) {
+                process_reset();
+                if(flashCtl.proj == 1) {
+                    sysHoldReset();
+                    usleep(50000);
+                    sysReleaseReset();
+                    ui->console->LOGI("Reset Core\n");
+                } else {
+                    ui->console->LOGI("Reset System\n");
+                }
+            } else if ((tokenQ.size() == 1) && (tokenQ[0] == "debug")) {
+                ui->console->LOGI("Enter Debug Mode\n");
+            } else if ((tokenQ.size() == 0) || (tokenQ[0] == "help") || (tokenQ[0] == "h")) {
+                ui->console->LOGI("This is Help Info\n");
+            } else if ((tokenQ[0] == "quit") || (tokenQ[0] == "q") || (tokenQ[0] == "exit")) {
+                cmd_debug = false;
+            } else if ((tokenQ.size() == 3) && (tokenQ[0] == "read")) {
+                char * p;
+                uint64_t data = 0;
+                uint64_t addr = strtoul(tokenQ[1].c_str(), & p, 16);
+                std::string target = tokenQ[2];
+                if (*p == 0) {
+                  if (target == "rb") {
+                    rvStatus = rv_do_read(addr, &data);
+                  } else if (target == "dma") {
+                    // rv_do_write(STATION_DMA_DMA_DEBUG_ADDR_ADDR, addr);
+                    // rv_do_write(STATION_DMA_DMA_DEBUG_REQ_TYPE_ADDR, 0);
+                    // data = rv_do_read(STATION_DMA_DMA_DEBUG_RD_DATA_ADDR);
+                  } else if (target == "dt") {
+                    //rv_do_write(STATION_DT_DBG_ADDR_ADDR, addr);
+                    //data = rv_do_read(STATION_DT_DBG_DATA_ADDR);
+                  } else {
+                    rvStatus = rv_do_read(addr, &data);
+                  }
+                   ui->console->LOGI("Do Read to Addr 0x%llx, Got Data 0x%llx\n", addr, data);
+                }
+            } else if ((tokenQ.size() == 4) && (tokenQ[0] == "write")) {
+                char * p;
+                uint64_t addr = strtoul(tokenQ[1].c_str(), & p, 16);
+                uint64_t data = strtoul(tokenQ[2].c_str(), & p, 16);
+                std::string target = tokenQ[3];
+                if (*p == 0) {
+                  if (target == "rb") {
+                    rv_do_write(addr, data);
+                  } else if (target == "dma") {
+                    // rv_do_write(STATION_DMA_DMA_DEBUG_ADDR_ADDR, addr);
+                    // rv_do_write(STATION_DMA_DMA_DEBUG_REQ_TYPE_ADDR, 2);
+                    // rv_do_write(STATION_DMA_DMA_DEBUG_WR_DATA_ADDR, data);
+                  } else if (target == "dt") {
+                    //rv_do_write(STATION_DT_DBG_ADDR_ADDR, addr);
+                    //rv_do_write(STATION_DT_DBG_DATA_ADDR, data);
+                  } else {
+                    rv_do_write(addr, data);
+                  }
+                  ui->console->LOGI("Do Write to Addr 0x%llx with Data 0x%llx\n", addr, data);
+                }
+            } else if ((tokenQ.size() == 4) && (tokenQ[0] == "dump")) {
+                char * p;
+                uint64_t data = 0;
+                uint64_t addr_lo = strtoul(tokenQ[1].c_str(), & p, 16);
+                uint64_t addr_hi = strtoul(tokenQ[2].c_str(), & p, 16);
+                std::string target = tokenQ[3];
+                if (*p == 0) {
+                    ui->console->LOGI("addr_lo = 0x%llx, addr_hi = 0x%llx\n", addr_lo, addr_hi);
+                    for (uint64_t addr = addr_lo; addr <= addr_hi; addr += ((flashCtl.proj == 0) ? 8 : 4)) {
+                        if (target == "rb") {
+                          rvStatus = rv_do_read(addr, &data);
+                        } else if (target == "dma") {
+                          // rv_do_write(STATION_DMA_DMA_DEBUG_ADDR_ADDR, addr);
+                          // rv_do_write(STATION_DMA_DMA_DEBUG_REQ_TYPE_ADDR, 0);
+                          // rvStatus = rv_do_read(STATION_DMA_DMA_DEBUG_RD_DATA_ADDR, &data);
+                        } else if (target == "dt") {
+                          //rv_do_write(STATION_DT_DBG_ADDR_ADDR, addr);
+                          //rvStatus = rv_do_read(STATION_DT_DBG_DATA_ADDR, &data);
+                        } else {
+                          rvStatus = rv_do_read(addr, &data);
+                        }
+
+                        ui->console->LOGI("0x%llx: 0x%08llx\n", addr + 0, (data >>  0) & 0xffffffff);
+                        if(flashCtl.proj == 0) {
+                            ui->console->LOGI("0x%llx: 0x%08llx\n", addr + 4, (data >> 32) & 0xffffffff);
+                        }
+                    }
+                }
+            } else {
+                    ui->console->LOGI("Unrecognized Command; Please use help or h to see supported command list.\n");
+            }
+            rvStatus  = ft_close();
+            if(cmd_debug == false) {
+                ui->console->LOGI(">>");
+            } else {
+                ui->console->LOGI("Please enter command: (All Data in HEX no matter 0x is added or not)\n: ");
+            }
+        }
+    }
+}
+
 bool MainWindow::configInit()
 {
+    bool rvStatus = false;
     char tempBuffer[mtpsize];
     const char *configMsg;
     ULONGLONG fileSize;
@@ -1072,7 +1297,8 @@ bool MainWindow::configInit()
         flashCtl.autoEraseFlag = false;
         flashCtl.autoVerifyFlag = false;
     }
-
+//    rvStatus   = ft_dev_init(waitfreq);
+//    rvStatus  &= ft_close();
 //    DWORD numDevs;
 //    FT_DEVICE_LIST_INFO_NODE* devInfo;
 //    FT_STATUS ftStatus;

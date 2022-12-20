@@ -2,7 +2,6 @@
 //
 
 #include <math.h>
-#include "stdafx.h"
 #include "stdint.h"
 #include "mytime.h"
 #include "flashrom.h"
@@ -47,6 +46,34 @@ BOOL rv_read(ULONGLONG addr, ULONGLONG *data)
     return rvStatus;
 }
 
+BOOL rv_do_read(ULONGLONG addr, ULONGLONG *data)
+{
+    ULONGLONG rdata = 0;
+    BOOL rvStatus = TRUE;
+    BYTE dwCount = 1;
+    BYTE addrBitW = 40;
+    BYTE dataBitW = 64;
+    addrBitW = (flashCtl.proj == 0) ? 40 : 32;
+    dataBitW = (flashCtl.proj == 0) ? 64 : 32;
+    //struct timeval tvpre, tvafter;
+    //gettimeofday(&tvpre, NULL);
+    do
+    {
+        rdata = 0;
+        rvStatus  = ReadDataAndCheckACK(addr, &rdata, addrBitW, dataBitW);
+        dwCount--;
+        if (dwCount == 0)
+        {
+            break;
+        }
+    } while (rvStatus == FALSE);
+    *data = rdata;
+//    fprintf(stderr, "*data=0x%llx\n", *data);
+    //gettimeofday(&tvafter, NULL);
+    //fprintf(stderr, "Timediff=%dus\n", (tvafter.tv_usec-tvpre.tv_usec));
+    return rvStatus;
+}
+
 BOOL rv_write(ULONGLONG addr, ULONGLONG data)
 {
     BOOL rvStatus;
@@ -59,6 +86,22 @@ BOOL rv_write(ULONGLONG addr, ULONGLONG data)
     rvStatus  = WriteDataAndCheckACK(addr, data, addrBitW, dataBitW);
     rvStatus &= (flashCtl.proj == 0) ? rvStatus : WriteDataAndCheckACK(addr + 4, data >> 32, addrBitW, dataBitW);
 
+    //gettimeofday(&tvafter, NULL);
+    //fprintf(stderr, "Timediff=%dus\n", (tvafter.tv_usec-tvpre.tv_usec));
+    //	//getchar();
+    return rvStatus;
+}
+
+BOOL rv_do_write(ULONGLONG addr, ULONGLONG data)
+{
+    BOOL rvStatus;
+    BYTE addrBitW = 40;
+    BYTE dataBitW = 64;
+    addrBitW = (flashCtl.proj == 0) ? 40 : 32;
+    dataBitW = (flashCtl.proj == 0) ? 64 : 32;
+    //struct timeval tvpre,tvafter;
+    //gettimeofday(&tvpre, NULL);
+    rvStatus  = WriteDataAndCheckACK(addr, data, addrBitW, dataBitW);
     //gettimeofday(&tvafter, NULL);
     //fprintf(stderr, "Timediff=%dus\n", (tvafter.tv_usec-tvpre.tv_usec));
     //	//getchar();
@@ -275,3 +318,4 @@ BOOL sysSetPc()
 
     return rvStatus;
 }
+

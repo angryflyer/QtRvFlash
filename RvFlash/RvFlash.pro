@@ -19,21 +19,22 @@ SOURCES += \
     $$PWD/src/rvlink_ftd2xx.cpp \
     $$PWD/src/flashrom.cpp \
     $$PWD/src/flashcfg.cpp \
-    $$PWD/src/stdafx.cpp \
+    $$PWD/src/mytime.cpp \
+    $$PWD/src/usb_listener.cpp \
     $$PWD/main.cpp \
-    $$PWD/mainwindow.cpp \
-    src/mytime.cpp
+    $$PWD/mainwindow.cpp
 
 
 HEADERS += \
     $$PWD/include/flashcfg.h \
     $$PWD/include/flashthread.h \
     $$PWD/include/console.h \
-    $$PWD/include/stdafx.h \
     $$PWD/include/targetver.h \
     $$PWD/include/rvlink_ftd2xx.h \
     $$PWD/include/flashrom.h \
     $$PWD/include/flashcfg.h \
+    $$PWD/include/mytime.h \
+    $$PWD/include/usb_listener.h \
     $$PWD/include/sw_header.h \
     $$PWD/include/station_cache.h \
     $$PWD/include/station_dma.h \
@@ -42,8 +43,10 @@ HEADERS += \
     $$PWD/include/station_sdio.h \
     $$PWD/include/station_slow_io.h \
     $$PWD/include/ftd2xx.h \
-    $$PWD/mainwindow.h \
-    include/mytime.h
+    $$PWD/mainwindow.h
+
+win32:HEADERS += $$PWD/include/WinTypes.h
+else:unix:!macx: LIBS += $$PWD/include/WinTypes.h
 
 FORMS += \
     mainwindow.ui
@@ -51,7 +54,9 @@ FORMS += \
 RESOURCES += \
     Resources/logo.qrc
 
-LIBS += -L$$PWD/lib/ -lftd2xx
+#LIBS += -L$$PWD/lib/ -lftd2xx
+win32:LIBS += -L$$PWD/lib/ -lftd2xx
+else:unix:!macx: LIBS += -L$$PWD/lib/ -llibftd2xx
 
 TRANSLATIONS += \
     RvFlash_zh_CN.ts

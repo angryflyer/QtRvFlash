@@ -72,7 +72,7 @@ Console::Console(QWidget *parent) :
 
 void Console::putData(const QByteArray &data)
 {
-    insertPlainText(data);
+    insertPlainText((QString)data);
 
     QScrollBar *bar = verticalScrollBar();
     bar->setValue(bar->maximum());
@@ -102,31 +102,71 @@ int Console::LOGI(const char *format,...)
 void Console::keyPressEvent(QKeyEvent *e)
 {
     switch (e->key()) {
-    case Qt::Key_Backspace:
-    case Qt::Key_Left:
-    case Qt::Key_Right:
-    case Qt::Key_Up:
-    case Qt::Key_Down:
+    case Qt::Key_Backspace: {
+        if(textCursor().columnNumber() > 2)
+        textCursor().deletePreviousChar();
+    }
+        break;
+    case Qt::Key_Left: {
+        if(textCursor().columnNumber() > 2)
+        moveCursor(QTextCursor::Left,QTextCursor::MoveAnchor);
+    }
+        break;
+    case Qt::Key_Right: {
+        moveCursor(QTextCursor::Right,QTextCursor::MoveAnchor);
+    }
+        break;
+    case Qt::Key_Up: {
+        moveCursor(QTextCursor::End,QTextCursor::MoveAnchor);
+        while(textCursor().columnNumber() > 2) {
+            textCursor().deletePreviousChar();
+        }
+        insertPlainText(QString(cmd_buffer[cmd_record_index]));
+        if(cmd_record_index > 0) {
+            cmd_record_index = cmd_record_index - 1;
+        }
+        cmd_status = 1;
+    }
+        break;
+    case Qt::Key_Down: {
+        moveCursor(QTextCursor::End,QTextCursor::MoveAnchor);
+        while((textCursor().columnNumber() > 2)) {
+            textCursor().deletePreviousChar();
+        }
+        if(cmd_record_index <= cmd_record_index_max) {
+            insertPlainText(QString(cmd_buffer[cmd_record_index]));
+            cmd_record_index = cmd_record_index + 1;
+        } else {
+            cmd_record_index = cmd_record_index_max;
+            if(textCursor().columnNumber() > 2) {
+                textCursor().deletePreviousChar();
+            }
+        }
+        cmd_status = 2;
+    }
         break;
     default:
+        if(*(e->text().toLocal8Bit().data()) == '\r') {
+            moveCursor(QTextCursor::End,QTextCursor::MoveAnchor);
+        }
         if (m_localEchoEnabled)
             QPlainTextEdit::keyPressEvent(e);
         emit getData(e->text().toLocal8Bit());
     }
 }
 
-void Console::mousePressEvent(QMouseEvent *e)
-{
-    Q_UNUSED(e)
-    setFocus();
-}
+//void Console::mousePressEvent(QMouseEvent *e)
+//{
+//    Q_UNUSED(e)
+//    setFocus();
+//}
 
-void Console::mouseDoubleClickEvent(QMouseEvent *e)
-{
-    Q_UNUSED(e)
-}
+//void Console::mouseDoubleClickEvent(QMouseEvent *e)
+//{
+//    Q_UNUSED(e)
+//}
 
-void Console::contextMenuEvent(QContextMenuEvent *e)
-{
-    Q_UNUSED(e)
-}
+//void Console::contextMenuEvent(QContextMenuEvent *e)
+//{
+//    Q_UNUSED(e)
+//}

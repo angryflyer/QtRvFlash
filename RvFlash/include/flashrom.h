@@ -19,6 +19,8 @@ BOOL chipConnect(void);
 
 BOOL rv_write(ULONGLONG addr, ULONGLONG data);
 BOOL rv_read(ULONGLONG addr, ULONGLONG *data);
+BOOL rv_do_write(ULONGLONG addr, ULONGLONG data);
+BOOL rv_do_read(ULONGLONG addr, ULONGLONG *data);
 BOOL sysHoldReset();
 BOOL sysReleaseReset();
 BOOL sysSetPc();

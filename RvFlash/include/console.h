@@ -70,11 +70,17 @@ public:
 
     int LOGI(const char *format,...);
 
+    char cmd_buffer[10][100] = {{0},{0}};
+    uint8_t cmd_buffer_index = 0;
+    uint8_t cmd_record_index_max = 0;
+    uint8_t cmd_record_index = 0;
+    uint8_t cmd_status = 0;
+
 protected:
     void keyPressEvent(QKeyEvent *e) override;
-    void mousePressEvent(QMouseEvent *e) override;
-    void mouseDoubleClickEvent(QMouseEvent *e) override;
-    void contextMenuEvent(QContextMenuEvent *e) override;
+//    void mousePressEvent(QMouseEvent *e) override;
+//    void mouseDoubleClickEvent(QMouseEvent *e) override;
+//    void contextMenuEvent(QContextMenuEvent *e) override;
 
 private:
     bool m_localEchoEnabled = false;

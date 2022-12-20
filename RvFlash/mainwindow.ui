@@ -420,8 +420,14 @@
       </item>
       <item>
        <widget class="QGroupBox" name="groupBoxCosole">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="title">
          <string/>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
         </property>
         <layout class="QGridLayout" name="gridLayout_2">
          <item row="0" column="0">
@@ -541,7 +547,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
      <x>0</x>
      <y>0</y>
      <width>1060</width>
-     <height>26</height>
+     <height>22</height>
     </rect>
    </property>
    <property name="font">

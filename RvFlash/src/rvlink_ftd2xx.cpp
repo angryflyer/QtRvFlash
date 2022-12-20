@@ -7,7 +7,7 @@
 //  Use of FTDI D2XX library:
 //----------------------------------------------------------------------------
 //  Include the following 2 lines in your header-file
-#pragma comment(lib, "FTD2XX.lib")
+//#pragma comment(lib, "FTD2XX.lib")
 #include "ftd2xx.h"
 //============================================================================
 	const BYTE AA_ECHO_CMD_1 = '\xAA';
