@@ -424,7 +424,8 @@ void MainWindow::saveas()
 void MainWindow::about()
 {
 //    QMessageBox::information(NULL,QStringLiteral("关于"),QStringLiteral("名称：RvFlash\n版本：V1.1\n时间：2022-04-29"),QStringLiteral("确定"));
-    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.2\nTime    ：2022-12-13"),QStringLiteral("Confirm"));
+//    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.2\nTime    ：2022-12-13"),QStringLiteral("Confirm"));
+    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.3\nTime    ：2023-04-13"),QStringLiteral("Confirm"));
 }
 
 void MainWindow::help()
@@ -909,7 +910,7 @@ bool MainWindow::checkStatus()
         if((true == flashCtl.writeFlag) || (true == flashCtl.autoFlag))
         {
 //            QMessageBox::warning(NULL,QStringLiteral("警告！"),QStringLiteral("文件超出flash容量限制,超出部分将会忽略！"),QStringLiteral("确定"));
-            QMessageBox::warning(NULL,QStringLiteral("Warning！"),QStringLiteral("Size over limit！"),QStringLiteral("Confirm"));
+            QMessageBox::warning(NULL,QStringLiteral("Warning！"),QStringLiteral("Size over limit，drop oversize data！"),QStringLiteral("Confirm"));
         }
         //return false;
     }

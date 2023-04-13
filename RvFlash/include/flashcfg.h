@@ -4,7 +4,7 @@
 #include <windows.h>
 #include "sw_header.h"
 
-#define bufsize      ((ULONGLONG)100 * 1024 * 1024) //100MByte
+#define bufsize      ((ULONGLONG)500 * 1024 * 1024) //100MByte
 #define qspisize     ((ULONGLONG)2 * 1024 *1024)//2MByte for qspi flash
 #define mtpsize      ((ULONGLONG)64 * 1024)
 #define mtpsecsize   ((ULONGLONG)8 * 1024)
