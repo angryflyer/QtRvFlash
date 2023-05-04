@@ -10,7 +10,7 @@ FlashThread::FlashThread(MainWindow* creator, QObject* parent) : QThread(parent)
 
 void FlashThread::run()
 {
-    emit progress(0, "", (flashtimer | threadstart));
+    emit progress(0, 0, "", (flashtimer | threadstart));
     if(flashCtl.proj == 1)
     {
         ft_open();
@@ -24,7 +24,14 @@ void FlashThread::run()
     }
     if(true == flashCtl.writeFlag)
     {
-        flashWrite();
+        // if datasize <= 64KB, single write
+        if(filesize64 <= 8192)
+        {
+            flashWrite();
+        } else
+        {
+            flashWriteBurst();
+        }
     }
     if(true == flashCtl.readFlag)
     {
@@ -55,7 +62,7 @@ void FlashThread::run()
     process_reset();
     ft_close();
 
-    emit progress(filesize64, "", (flashtimer | threadend));
+    emit progress(filesize64, 0, "", (flashtimer | threadend));
 }
 
 void FlashThread::flashErase()
@@ -67,7 +74,8 @@ void FlashThread::flashErase()
     ULONGLONG eraseprogress = 0;
     DWORD sectorlocat = 0;
     DWORD i = 0;
-    BOOL rvStatus = FALSE;
+    float  speed = 0;
+    BOOL   rvStatus = FALSE;
     static time_t ltime;
 
     dwLegth = filesize64;
@@ -83,7 +91,7 @@ void FlashThread::flashErase()
     ltime = time(NULL);
     fprintf(stderr,  "Start Erasing MTP All Sector @ %s\n", asctime(localtime(&ltime)));
 
-    //emit progress(0, "Start Erasing MTP All Sector @ %s\n", (erasetype | threadstart));
+    //emit progress(0, speed, "Start Erasing MTP All Sector @ %s\n", (erasetype | threadstart));
 
     rvStatus = rv_read(flashCtl.address, &rdata);
     //usleep(100 * 1000);
@@ -114,7 +122,7 @@ void FlashThread::flashErase()
             do
             {
                 fprintf(stderr,  "erasing mtp sector %lu...\r\n", i - 1);
-                emit progress((i * eraseprogress), "Done Erasing MTP All Sector @ %s\n", (erasetype | threadworking));
+                emit progress((i * eraseprogress), speed, "Done Erasing MTP All Sector @ %s\n", (erasetype | threadworking));
                 rvStatus = rv_read(STATION_SDIO_MTP_SEC_ERASE_ADDR, &rdata);
             }while (rdata == 0x03);
         }
@@ -122,7 +130,7 @@ void FlashThread::flashErase()
     //  fprintf(stderr,  "Do get erase register=0x%x\n",rdata);
     ltime = time(NULL);
     fprintf(stderr,  "Done Erasing MTP All Sector @ %s\n", asctime(localtime(&ltime)));
-    emit progress(dwLegth, "Done Erasing MTP All Sector @ %s\n", (erasetype | threadend));
+    emit progress(dwLegth, speed, "Done Erasing MTP All Sector @ %s\n", (erasetype | threadend));
     ft_close();
 }
 
@@ -131,27 +139,87 @@ BOOL FlashThread::flashWrite()
     ULONGLONG dwLegth = filesize64;
     ULONGLONG i = 0;
     BOOL rvStatus = FALSE;
+    struct timeval tvpre, tvafter;
+    long   elapsed_time = 0;
+    float  speed   = 0;
 
     ft_open();
 
-    emit progress(i, "Start Writing file.bin to memory @ %s\n", (writetype | threadstart));
+    emit progress(i, speed, "Start Writing file.bin to memory @ %s\n", (writetype | threadstart));
     for (i = 0; i < dwLegth; i++)
     {
+        // get pre time
+        gettimeofday(&tvpre, NULL);
+        // run rv_write
         rvStatus = rv_write(flashCtl.address + i * 8, flashCtl.writeBufferAddr[i]);
+        // get after time
+        gettimeofday(&tvafter, NULL);
+        // get elapsed time/us
+        elapsed_time = tvafter.tv_usec-tvpre.tv_usec;
+        // calc speed -> KB/s
+        speed = ((float)8 * 1000 * 1000 / 1024) / elapsed_time;
+//        fprintf(stderr, "Timediff=%ldus, speed=%dKHz/s\n", (tvafter.tv_usec-tvpre.tv_usec), speed);
         if(FALSE == rvStatus) {
             break;
         }
         //fprintf(stderr, "Do Writing data to memory @ addr 0x%llx, wdata @ 0x%llx\n", flashCtl.address + i * 8,  wdata_buffer[i]);
-        emit progress(i, "Working...\n", (writetype | threadworking));
+        emit progress(i, speed, "Working...\n", (writetype | threadworking));
     }
 
     ft_close();
 
     if(FALSE == rvStatus) {
-        emit progress(i, "Working...\n", (writeerror | threadworking));
+        emit progress(i, speed, "Working...\n", (writeerror | threadworking));
         return FALSE;
     } else {
-        emit progress(i, "Done Writing file.bin to memory @ %s\n", (writetype | threadend));
+        emit progress(i, speed, "Done Writing file.bin to memory @ %s\n", (writetype | threadend));
+        return TRUE;
+    }
+}
+
+BOOL FlashThread::flashWriteBurst()
+{
+    // 32bit(4Byte) per burst
+    ULONGLONG dwBurstLen = 1024;
+    ULONGLONG dwBlockLen = ceil((float)flashCtl.fileSize / (4 * dwBurstLen));
+    ULONGLONG dwAddrOffset;
+    ULONGLONG i = 0;
+    BOOL rvStatus = FALSE;
+    struct timeval tvpre, tvafter;
+    long   elapsed_time = 0;
+    float  speed   = 0;
+
+    ft_open();
+    emit progress(i, speed, "Start Writing file.bin to memory @ %s\n", (writetype | threadstart));
+    for (i = 0; i < dwBlockLen; i++)
+    {
+        dwAddrOffset = i * dwBurstLen * 4;
+        // get pre time
+        gettimeofday(&tvpre, NULL);
+        // run rv_write
+        rvStatus = rv_write_burst(flashCtl.address + dwAddrOffset, &flashCtl.writeBufferAddr[dwAddrOffset/8], dwBurstLen);
+        // get after time
+        gettimeofday(&tvafter, NULL);
+        // get elapsed time/us
+        elapsed_time = tvafter.tv_usec-tvpre.tv_usec;
+        // calc speed -> KB/s
+        speed = ((float)dwBurstLen * 4 * 1000 * 1000 / 1024) / elapsed_time;
+//        fprintf(stderr, "Timediff=%ldus\n", (tvafter.tv_usec-tvpre.tv_usec));
+//        fprintf(stderr, "speed=%.1fKB/s\n", speed);
+        if(FALSE == rvStatus) {
+            break;
+        }
+        //fprintf(stderr, "Do Writing data to memory @ addr 0x%llx, wdata @ 0x%llx\n", flashCtl.address + i * 8,  wdata_buffer[i]);
+        emit progress(dwAddrOffset/8, speed, "Working...\n", (writetype | threadworking));
+    }
+
+    ft_close();
+
+    if(FALSE == rvStatus) {
+        emit progress(dwAddrOffset/8, speed, "Working...\n", (writeerror | threadworking));
+        return FALSE;
+    } else {
+        emit progress(dwAddrOffset/8, speed, "Done Writing file.bin to memory @ %s\n", (writetype | threadend));
         return TRUE;
     }
 }
@@ -166,9 +234,13 @@ BOOL FlashThread::flashReadOut()
 
     ULONGLONG rdata;
 
+    struct timeval tvpre, tvafter;
+    long   elapsed_time = 0;
+    float  speed   = 0;
+
     ft_open();
 
-    emit progress(i, "Start Reading data out from memory @ %s\n", (readouttype | threadstart));
+    emit progress(i, speed, "Start Reading data out from memory @ %s\n", (readouttype | threadstart));
 
 //    if(STATION_FLASH_FLASH_ADDR == flashCtl.address) {
 //        do_write(STATION_FLASH_AUTO_MODE_DEEP_POWER_DOWN_ADDR,0x0);
@@ -180,25 +252,33 @@ BOOL FlashThread::flashReadOut()
     }
     for (i = 0; i < dwLegth; i++)
     {
+        // get pre time
+        gettimeofday(&tvpre, NULL);
+        // run rv_write
         rvStatus = rv_read(flashCtl.address + i * 8,&flashCtl.readBufferAddr[i]);
-
+        // get after time
+        gettimeofday(&tvafter, NULL);
+        // get elapsed time/us
+        elapsed_time = tvafter.tv_usec-tvpre.tv_usec;
+        // calc speed -> KB/s
+        speed = ((float)8 * 1000 * 1000 / 1024) / elapsed_time;
         if(FALSE == rvStatus) {
             break;
         }
         //fprintf(stderr, "Do Reading data from memory @ addr 0x%llx, rdata @ 0x%llx\n", flashCtl.address + i * 8,  rdata_buffer[i]);
-        emit progress(i, "Working...\n", readtype | threadworking);
+        emit progress(i, speed, "Working...\n", readouttype | threadworking);
     }
 
     ft_close();
 
     if(FALSE == rvStatus) {
-        emit progress(i, "Working...\n", readouterror | threadworking);
+        emit progress(i, speed, "Working...\n", readouterror | threadworking);
         Sleep(20);
         return FALSE;
     }
     else
     {
-        emit progress(dwLegth, "Done Reading data out from memory @ %s\n", (readouttype | threadend));
+        emit progress(dwLegth, speed, "Done Reading data out from memory @ %s\n", (readouttype | threadend));
     }
 
     return TRUE;
@@ -214,9 +294,13 @@ BOOL FlashThread::flashRead()
 
     ULONGLONG rdata;
 
+    struct timeval tvpre, tvafter;
+    long   elapsed_time = 0;
+    float  speed   = 0;
+
     ft_open();
 
-    //emit progress(i, "Start Reading data from memory @ %s\n", readtype | threadstart);
+    //emit progress(i, speed, "Start Reading data from memory @ %s\n", readtype | threadstart);
 //    if(STATION_FLASH_FLASH_ADDR == flashCtl.address) {
 //        do_write(STATION_FLASH_AUTO_MODE_DEEP_POWER_DOWN_ADDR,0x0);
 //        usleep(300);
@@ -227,22 +311,31 @@ BOOL FlashThread::flashRead()
     }
     for (i = 0; i < dwLegth; i++)
     {
+        // get pre time
+        gettimeofday(&tvpre, NULL);
+        // run rv_write
         rvStatus = rv_read(flashCtl.address + i * 8, &flashCtl.readBufferAddr[i]);
         if(FALSE == rvStatus) {
             break;
         }
+        // get after time
+        gettimeofday(&tvafter, NULL);
+        // get elapsed time/us
+        elapsed_time = tvafter.tv_usec-tvpre.tv_usec;
+        // calc speed -> KB/s
+        speed = ((float)8 * 1000 * 1000 / 1024) / elapsed_time;
         //fprintf(stderr, "Do Reading data from memory @ addr 0x%llx, rdata @ 0x%llx\n", flashCtl.address + i * 8,  rdata_buffer[i]);
-        emit progress(i, "Working...\n", (readtype | threadworking));
+        emit progress(i, speed, "Working...\n", (readtype | threadworking));
     }
 
     ft_close();
 
     if(FALSE == rvStatus) {
-//        emit progress(i, "Working...\n", readerror | threadworking);
+//        emit progress(i, speed, "Working...\n", readerror | threadworking);
         Sleep(20);
         return FALSE;
     }
-    emit progress(i, "Done Reading data from memory @ %s\n", readtype | threadend);
+    emit progress(i, speed, "Done Reading data from memory @ %s\n", readtype | threadend);
     return TRUE;
 }
 
@@ -253,7 +346,11 @@ BOOL FlashThread::flashVerify()
     ULONGLONG i = 0;
     BOOL rvStatus;
 
-    emit progress(0, "Start Verifing data from memory @ %s\n", (verifytype | threadstart));
+    struct timeval tvpre, tvafter;
+    long   elapsed_time = 0;
+    float  speed   = 0;
+
+    emit progress(0, speed, "Start Verifing data from memory @ %s\n", (verifytype | threadstart));
 
     rvStatus = flashRead();
 
@@ -275,10 +372,10 @@ BOOL FlashThread::flashVerify()
     }
 
     if((FALSE == cmp_flag) || (FALSE == rvStatus)) {
-        emit progress(dwLegth, "Error Verifing data from memory @ %s\n", (verifyerror | threadend));
+        emit progress(dwLegth, speed, "Error Verifing data from memory @ %s\n", (verifyerror | threadend));
         return FALSE;
     } else {
-        emit progress(dwLegth, "Done Verifing data from memory @ %s\n", (verifytype | threadend));
+        emit progress(dwLegth, speed, "Done Verifing data from memory @ %s\n", (verifytype | threadend));
         return TRUE;
     }
 
@@ -286,7 +383,7 @@ BOOL FlashThread::flashVerify()
 
 void FlashThread::flashAuto()
 {
-    BOOL rvStatus;
+    BOOL rvStatus = FALSE;
     if(flashCtl.autoEraseFlag)
     {
         flashErase();
@@ -294,7 +391,14 @@ void FlashThread::flashAuto()
     }
     if(flashCtl.autoWriteFlag)
     {
-        rvStatus = flashWrite();
+        // if datasize <= 64KB, single write
+        if(filesize64 <= 8192)
+        {
+            rvStatus = flashWrite();
+        } else
+        {
+            rvStatus = flashWriteBurst();
+        }
         if(FALSE == rvStatus) return;
         Sleep(20);//delay for message handled
     }

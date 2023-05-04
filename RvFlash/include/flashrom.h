@@ -18,6 +18,7 @@ BOOL chipConnect(void);
 //BOOL flashRead(ULONGLONG dwAddr, BYTE* dwGetData, ULONGLONG dwLegth);
 
 BOOL rv_write(ULONGLONG addr, ULONGLONG data);
+BOOL rv_write_burst(ULONGLONG addr, ULONGLONG *data, DWORD dwBurstLen);
 BOOL rv_read(ULONGLONG addr, ULONGLONG *data);
 BOOL rv_do_write(ULONGLONG addr, ULONGLONG data);
 BOOL rv_do_read(ULONGLONG addr, ULONGLONG *data);

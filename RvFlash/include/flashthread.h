@@ -19,7 +19,7 @@ public:
     FlashThread(MainWindow* creator, QObject* parent = NULL);
 
 signals:
-    void progress(int p, const char* msg, int type);
+    void progress(int p, float speed, const char* msg, int type);
 
 protected:
 
@@ -28,6 +28,8 @@ protected:
     void flashErase();
 
     BOOL flashWrite();
+
+    BOOL flashWriteBurst();
 
     BOOL flashReadOut();
 

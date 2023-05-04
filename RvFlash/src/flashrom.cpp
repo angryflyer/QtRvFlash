@@ -20,7 +20,7 @@ BOOL rv_read(ULONGLONG addr, ULONGLONG *data)
     ULONGLONG rdata = 0;
     ULONGLONG rdataH= 0;
     BOOL rvStatus = TRUE;
-    BYTE dwCount = 1;
+    BYTE dwCount = 3;
     BYTE addrBitW = 40;
     BYTE dataBitW = 64;
     addrBitW = (flashCtl.proj == 0) ? 40 : 32;
@@ -50,7 +50,7 @@ BOOL rv_do_read(ULONGLONG addr, ULONGLONG *data)
 {
     ULONGLONG rdata = 0;
     BOOL rvStatus = TRUE;
-    BYTE dwCount = 1;
+    BYTE dwCount = 3;
     BYTE addrBitW = 40;
     BYTE dataBitW = 64;
     addrBitW = (flashCtl.proj == 0) ? 40 : 32;
@@ -85,6 +85,24 @@ BOOL rv_write(ULONGLONG addr, ULONGLONG data)
     //gettimeofday(&tvpre, NULL);
     rvStatus  = WriteDataAndCheckACK(addr, data, addrBitW, dataBitW);
     rvStatus &= (flashCtl.proj == 0) ? rvStatus : WriteDataAndCheckACK(addr + 4, data >> 32, addrBitW, dataBitW);
+
+    //gettimeofday(&tvafter, NULL);
+    //fprintf(stderr, "Timediff=%dus\n", (tvafter.tv_usec-tvpre.tv_usec));
+    //	//getchar();
+    return rvStatus;
+}
+
+BOOL rv_write_burst(ULONGLONG addr, ULONGLONG *data, DWORD dwBurstLen)
+{
+    BOOL rvStatus;
+    BYTE addrBitW = 40;
+    BYTE dataBitW = 64;
+    addrBitW = (flashCtl.proj == 0) ? 40 : 32;
+    dataBitW = (flashCtl.proj == 0) ? 64 : 32;
+    //struct timeval tvpre,tvafter;
+    //gettimeofday(&tvpre, NULL);
+//    fprintf(stderr, "enter rv_write_burst!\n");
+    rvStatus  = WriteDataBurst(addr, data, addrBitW, dataBitW, dwBurstLen);
 
     //gettimeofday(&tvafter, NULL);
     //fprintf(stderr, "Timediff=%dus\n", (tvafter.tv_usec-tvpre.tv_usec));

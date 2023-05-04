@@ -91,7 +91,7 @@ private slots:
 
     void doSomething(void);
 
-    void updateProgress(int p, const char* msg, int type);
+    void updateProgress(int p, float speed, const char* msg, int type);
 
     void timerUpdate();
 

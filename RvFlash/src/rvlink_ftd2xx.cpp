@@ -69,7 +69,7 @@
 
 	FT_STATUS ftStatus;			//Status defined in D2XX to indicate operation result
 	FT_HANDLE ftHandle;			//Handle of FTD2XX device port 
-	BYTE OutputBuffer[1024];		//Buffer to hold MPSSE commands and data to be sent to FTD2XX
+    BYTE OutputBuffer[65536];		//Buffer to hold MPSSE commands and data to be sent to FTD2XX
 	BYTE InputBuffer[65536];		//Buffer to hold Data bytes to be read from FTD2XX
     BYTE dwDataTemp[65536] = {0};
     BYTE dwDataRotate[65536] = {0};
@@ -486,6 +486,7 @@ BOOL WriteDataAndCheckACK(ULONGLONG dwAddr,ULONGLONG dwData,BYTE dwAddrBitW,BYTE
 	OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BIT_OUT; 	//clock data bit out on �Cve Clock Edge MSB first, transfer Parity and dwTestioStop
 	OutputBuffer[dwNumBytesToSend++] = '\x01';  //2 bits
 	OutputBuffer[dwNumBytesToSend++] = dwDataSend[dwCount];	//Data length of 0x0000 means 1 byte data to clock out
+
     //Set dataout input?
 	OutputBuffer[dwNumBytesToSend++] = '\x80'; 	//Command to set directions of lower 8 pins and force value on bits set as output
 	OutputBuffer[dwNumBytesToSend++] = '\x72'; 	//Set data high,clk low, set GPIOL0-2 to 1(high)
@@ -563,8 +564,7 @@ BOOL WriteDataAndCheckACK(ULONGLONG dwAddr,ULONGLONG dwData,BYTE dwAddrBitW,BYTE
 
 		// printf("Write Read ACK dwNumInputBuffer=%d\n",dwNumInputBuffer);
 
-		ftStatus = FT_Read(ftHandle, InputBuffer, dwNumInputBuffer , &dwNumBytesRead);  	//Read dwNumInputBuffer bytes from device receive buffer
-
+        ftStatus = FT_Read(ftHandle, InputBuffer, dwNumInputBuffer , &dwNumBytesRead);  	//Read dwNumInputBuffer bytes from device receive buffer
 		// static time_t ltime;
 		// ltime = time(NULL);
 		// fprintf(stderr, "Start InputDataHandle @ %s\n", asctime(localtime(&ltime)));
@@ -599,6 +599,253 @@ BOOL WriteDataAndCheckACK(ULONGLONG dwAddr,ULONGLONG dwData,BYTE dwAddrBitW,BYTE
 	}
 	
 	return TRUE;
+}
+
+// check ack   : only in last burst,
+// max transfer: 8192 * 4 = 32KByte,
+// dwBurstLen  : dwBurstLen <= 8192 when dwDataBitW equal 32
+BOOL WriteDataBurst(ULONGLONG dwAddr, ULONGLONG *dwData, BYTE dwAddrBitW, BYTE dwDataBitW, DWORD dwBurstLen)
+{
+    FT_STATUS ftStatus = FT_OK;
+    ULONGLONG dwDataTemp;
+    DWORD *dwDataBurst;
+    DWORD dwCount;
+    DWORD dwBurstCount;
+    BYTE dwGetAck = 0xff;
+    rcvdat rcvdata = {0xff, 0xff, 0xff};
+    // max transfer 8192 * 4 = 32KByte
+    BYTE dwDataSend[8192][18] = {{0}};
+    BYTE Parity = 1;
+    BYTE Array = 0;
+    BYTE dwAddrW = dwAddrBitW / 8;
+    BYTE dwDataW = dwDataBitW / 8;
+    BYTE dwMaskW = (dwDataBitW < 64) ? 1 : dwDataW / 8;
+    BYTE dWSumW  = dwAddrW + dwDataW + dwMaskW;
+
+    dwDataBurst = (DWORD *) dwData;
+
+    for(dwBurstCount = 0; dwBurstCount < dwBurstLen; dwBurstCount ++)
+    {
+        dwDataSend[dwBurstCount][0] = 0xfc | (dwTestioStart << 1) | dwTesioWriteFlag;
+        //dwAddr
+        for(dwCount = 1; dwCount <= dwAddrW; dwCount ++)
+        {
+            dwDataSend[dwBurstCount][dwCount] = 0xff & (dwAddr >> (dwAddrW - dwCount) * 8);
+        }
+
+        for(; dwCount <= dwAddrW + dwMaskW; dwCount ++)
+        {
+            dwDataSend[dwBurstCount][dwCount] = STRB;
+        }
+        //dwData
+        for(; dwCount <= dWSumW; dwCount ++)
+        {
+            dwDataSend[dwBurstCount][dwCount] = 0xff & (dwDataBurst[dwBurstCount] >> (dWSumW - dwCount) * 8);
+        }
+        //Calculate Parity
+        Array  = dWSumW;
+        Parity = soc_gen_even_parity_common(&dwDataSend[dwBurstCount][1], Array*8);
+        Parity = (Parity + dwTesioWriteFlag) % 2;
+    //	printf("Write Parity=0x%x\n",Parity);
+        //Parity and dwTestioStop
+        dwDataSend[dwBurstCount][dwCount]    = 0x3f | (Parity << 7) | (dwTestioStop << 6);
+
+        dwCount ++;
+        // fix delay with clk cycle for next transfer
+        dwDataSend[dwBurstCount][dwCount ++] = 0xff;
+        dwDataSend[dwBurstCount][dwCount   ] = 0xff;
+        dwAddr = dwAddr + dwDataW;
+    //	printf("dwDataSend[dwBurstCount][15]=0x%x\n",dwDataSend[15]);
+
+        // for debug
+        // for(BYTE i = 0; i < 16; i++)
+        // {
+        // 	printf("dwDataSend[dwBurstCount][%d]=0x%x\n", i, dwDataSend[i]);
+        // }
+    }
+//    fprintf(stderr, "dwBurstCount = %lu, dwDataBurst[%lu] = 0x%lx\n", dwBurstCount-1, dwBurstCount-1, dwDataBurst[dwBurstCount-1]);
+//    printf("dwNumBytesToSend count of change direction=%d\n", dwNumBytesToSend);
+    dwNumBytesToSend = 0;
+    // start config send data
+    for(dwBurstCount = 0; dwBurstCount < dwBurstLen; dwBurstCount ++)
+    {
+        for(dwCount = 0; dwCount < 1; dwCount ++)	// Repeat commands to ensure the minimum period of the dwTestioStop setup time ie 600ns is achieved
+        {
+            OutputBuffer[dwNumBytesToSend++] = '\x80'; 	//Command to set directions of lower 8 pins and force value on bits set as output
+            OutputBuffer[dwNumBytesToSend++] = '\x72'; 	//Set dataout high, clk low, set GPIOL0-2 to 1(high)
+            OutputBuffer[dwNumBytesToSend++] = '\xf3';	//Set SK,DO,GPIOL0 pins as output with bit ��1��, other pins as input with bit ��0��
+        }
+
+        OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_OUT; 	//clock data byte out on �Cve Clock Edge MSB first
+        OutputBuffer[dwNumBytesToSend++] = '\x00';  //0+1=1 bytes to clk out
+        OutputBuffer[dwNumBytesToSend++] = '\x00';	//Data length of 0x0000 means 1 byte data to clock out
+
+        OutputBuffer[dwNumBytesToSend++] = dwDataSend[dwBurstCount][0];
+
+        OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_OUT; //clock data byte out on �Cve Clock Edge MSB first
+        OutputBuffer[dwNumBytesToSend++] = dwAddrW - 1;                     //x+1 bytes to clk out
+        OutputBuffer[dwNumBytesToSend++] = '\x00';	                        //Data length of 0x0000 means 1 byte data to clock out
+
+        for(dwCount=1; dwCount<=dwAddrW; dwCount++)	                        // Repeat commands to pass dwDataSend to OutputBufer
+        {
+            OutputBuffer[dwNumBytesToSend++] = dwDataSend[dwBurstCount][dwCount];
+
+        }
+
+        //output mask/strb
+        OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BIT_OUT; 	//clock data bit out on �Cve Clock Edge MSB first, transfer Parity and dwTestioStop
+        OutputBuffer[dwNumBytesToSend++] = dwDataW - 1;                     //dwDataW bits
+        OutputBuffer[dwNumBytesToSend++] = dwDataSend[dwBurstCount][dwCount];	            //Data length of 0x0000 means 1 byte data to clock out
+        dwCount++;                                                          //++ needed here
+
+        //output data
+        OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_OUT; //clock data byte out on �Cve Clock Edge MSB first
+        OutputBuffer[dwNumBytesToSend++] = dwDataW - 1;                     //x+1 bytes to clk out
+        OutputBuffer[dwNumBytesToSend++] = '\x00';	                        //Data length of 0x0000 means 1 byte data to clock out
+
+        for(; dwCount<=dWSumW; dwCount++)	// Repeat commands to pass dwDataSend to OutputBufer
+        {
+            OutputBuffer[dwNumBytesToSend++] = dwDataSend[dwBurstCount][dwCount];
+        }
+
+        //output Parity and dwTestioStop
+        OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BIT_OUT; 	//clock data bit out on �Cve Clock Edge MSB first, transfer Parity and dwTestioStop
+        OutputBuffer[dwNumBytesToSend++] = '\x01';  //2 bits
+        OutputBuffer[dwNumBytesToSend++] = dwDataSend[dwBurstCount][dwCount];	//Data length of 0x0000 means 1 byte data to clock out
+
+        dwCount ++;
+        // Set dataout input for waiting ack, but not update to pc
+        OutputBuffer[dwNumBytesToSend++] = '\x80'; 	//Command to set directions of lower 8 pins and force value on bits set as output
+        OutputBuffer[dwNumBytesToSend++] = '\x72'; 	//Set data high,clk low, set GPIOL0-2 to 1(high)
+        OutputBuffer[dwNumBytesToSend++] = '\xf1';	//Set CLK,GPIOL0-3 pins as output with bit ��1��, data and other pins as input with bit ��0��
+        // output nop data 0xff
+        OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_IN; //clock data byte out on �Cve Clock Edge MSB first
+        OutputBuffer[dwNumBytesToSend++] = '\x01';                          //x+1 bytes to clk out
+        OutputBuffer[dwNumBytesToSend++] = '\x00';	                        //Data length of 0x0000 means 1 byte data to clock out
+        OutputBuffer[dwNumBytesToSend++] = dwDataSend[dwBurstCount][dwCount++];
+        OutputBuffer[dwNumBytesToSend++] = dwDataSend[dwBurstCount][dwCount];
+    } // end config send data
+//    fprintf(stderr, "dwBurstCount = %lu, dwNumBytesToSend = %lu\n", dwBurstCount, dwNumBytesToSend);
+//    fprintf(stderr, "dwNumBytesToSend count of send data=%lu\n", dwNumBytesToSend);
+
+//    //Set dataout input, finish write and start receive last ack
+//    OutputBuffer[dwNumBytesToSend++] = '\x80'; 	//Command to set directions of lower 8 pins and force value on bits set as output
+//    OutputBuffer[dwNumBytesToSend++] = '\x72'; 	//Set data high,clk low, set GPIOL0-2 to 1(high)
+//    OutputBuffer[dwNumBytesToSend++] = '\xf1';	//Set CLK,GPIOL0-3 pins as output with bit ��1��, data and other pins as input with bit ��0��
+
+//    //Get Ack data from chip,clock out with byte in
+//    OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_IN; 	//clock data bit out on �Cve Clock Edge MSB first, transfer Parity and dwTestioStop
+//    if((dwAddr >= STATION_SDIO_MTP_TIME_CONFIG_ADDR__DEPTH_0) && (dwAddr <= (STATION_SDIO_MTP_IDLE_ADDR + 8)))
+//    {
+//        OutputBuffer[dwNumBytesToSend++] = waitMtpEraseByte & 0xff;  //n bytes to clock out
+//        OutputBuffer[dwNumBytesToSend++] = (waitMtpEraseByte >> 8) & 0xff;
+// //		printf("waitMtpEraseByte=0x%x,%d\n",waitMtpEraseByte,waitMtpEraseByte);
+//    }
+//    else if((dwAddr >= STATION_SDIO_MTP_ADDR) && (dwAddr < STATION_SDIO_MTP_TIME_CONFIG_ADDR__DEPTH_0))
+//    {
+//        OutputBuffer[dwNumBytesToSend++] = waitMtpProgByte & 0xff;  //n bytes to clock out
+//        OutputBuffer[dwNumBytesToSend++] = (waitMtpProgByte >> 8) & 0xff;  //n bytes to clock out
+// //		printf("waitMtpProgByte=0x%x,%d\n",waitMtpProgByte,waitMtpProgByte);
+//    }
+//    else
+//    {
+//        OutputBuffer[dwNumBytesToSend++] = waitByte & 0xff;  //n bytes to clock out
+//        OutputBuffer[dwNumBytesToSend++] = (waitByte >> 8) & 0xff;  //n bytes to clock out
+// //	  printf("waitByte=0x%x,%d\n",waitByte,waitByte);
+//    }
+//	OutputBuffer[dwNumBytesToSend++] = 0xff;	//Data length of 0x0000 means 1 byte data to clock out, no need data here for sample in
+//	OutputBuffer[dwNumBytesToSend++] = 0xff;
+
+    //flush chip buffer to pc
+    OutputBuffer[dwNumBytesToSend++] = '\x87';	//Send answer back immediate command
+
+    //Set bus to idle, set clk and data high
+    OutputBuffer[dwNumBytesToSend++] = '\x80'; 	//Command to set directions of lower 8 pins and force value on bits set as output
+    OutputBuffer[dwNumBytesToSend++] = '\x73'; 	//Set data,clk high, set GPIOL0-3 to 1(high)
+    OutputBuffer[dwNumBytesToSend++] = '\xf3';	//Set SK,DO,GPIOL0 pins as output with bit ��1��, other pins as input with bit ��0��
+
+//    fprintf(stderr, "dwNumBytesToSend count of finish send=%lu\n", dwNumBytesToSend);
+
+    ftStatus = FT_Write(ftHandle, OutputBuffer, dwNumBytesToSend, &dwNumBytesSent);		//Send off the commands
+
+    dwNumBytesToSend = 0;			//Clear output buffer
+//  if((dwAddr >= STATION_SDIO_MTP_TIME_CONFIG_ADDR__DEPTH_0) && (dwAddr <= (STATION_SDIO_MTP_IDLE_ADDR + 8)))
+// 	{
+// 		usleep(300 * 1000); //calc 13bytes * 8bit /  1 =  104ms, then 200*1000us >> 104ms for stable data.
+// 	}
+// 	else if((dwAddr >= STATION_SDIO_BASE_ADDR) && (dwAddr < (STATION_SDIO_BASE_ADDR + 8*8*1024)))
+// 	{
+// 		usleep(waitDataStableTime * waitlevel * 1000);
+// 	}
+// 	else
+// 	{
+// 		usleep(waitDataStableTime * 1000);
+// //		printf("do set waitStableTime=%3.2f\n",waitStableTime);
+// //		printf("do set waitStableTh=%3.2f\n",waitStableTh);
+// 	}
+    dwNumBytesToSend = 0;			//Clear output buffer
+    do {
+        ftStatus = FT_GetQueueStatus(ftHandle, &dwNumInputBuffer);	//Get the number of bytes in the device input buffer
+    } while ((dwNumInputBuffer == 0) && (ftStatus == FT_OK));   //or Timeout
+
+    //Check if ACK bit received, may need to read more times to get ACK bit or fail if timeout
+    dwCount = 0;
+    while(dwGetAck)
+    {
+        dwNumInputBuffer = 0;
+        do
+        {
+            ftStatus = FT_GetQueueStatus(ftHandle, &dwNumInputBuffer);
+            timeoutcounter ++;
+            if(timeoutcounter == timeoutvalue)
+            {
+                timeoutcounter = 0;
+                break;
+            }
+//			printf("timeoutcounter=%d\n",timeoutcounter);
+        } while ((dwNumInputBuffer == 0) && (ftStatus == FT_OK));
+
+        // printf("Write Read ACK dwNumInputBuffer=%d\n",dwNumInputBuffer);
+
+        ftStatus = FT_Read(ftHandle, InputBuffer, dwNumInputBuffer , &dwNumBytesRead);  	//Read dwNumInputBuffer bytes from device receive buffer
+//        fprintf(stderr, "dwNumBytesRead=%lu\n",dwNumBytesRead);
+//        fprintf(stderr, "InputBuffer[0]=0x%x\n",InputBuffer[0]);
+//        fprintf(stderr, "InputBuffer[1]=0x%x\n",InputBuffer[1]);
+
+        // static time_t ltime;
+        // ltime = time(NULL);
+        // fprintf(stderr, "Start InputDataHandle @ %s\n", asctime(localtime(&ltime)));
+
+        InputDataHandle(&dwDataTemp, &rcvdata, InputBuffer, dwNumBytesRead, dwTesioWriteFlag | (dwDataW << 1));                   //Handle received data
+        dwGetAck = rcvdata.ack;
+
+        // ltime = time(NULL);
+        // fprintf(stderr, "Done InputDataHandle @ %s\n", asctime(localtime(&ltime)));
+
+        if ((ftStatus != FT_OK) || (dwCount == rwcycle))
+        {
+            printf("error code 1:fail to get ACK when write byte!---0x%x\n",dwGetAck);
+            printf("error addr  :0x%llx error data:0x%llx\n",dwAddr,dwData);
+            return FALSE; //Error, can't get the ACK bit from debug port
+        }
+        else
+        {
+            // dwGetAck = (InputBuffer[0] << 8) | InputBuffer[1];
+            // printf("Do Get WACK:InputBuffer[0]=0x%x,InputBuffer[1]=0x%x\n",InputBuffer[0],InputBuffer[1]);
+            // printf("Do Get WACK:dwGetAck=0x%x\n",dwGetAck);
+            if (dwGetAck != dwTestioAck)	//Check ACK bit 0 on data byte read out
+            {
+                //timeout counter
+                dwCount++;
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+
+    return TRUE;
 }
 
 //BOOL ReadDataAndCheckACK(ULONGLONG dwAddr, ULONGLONG *dwGetData, BYTE dwAddrBitW, BYTE dwDataBitW, BYTE *ptBuffer, ULONGLONG *ptNum)

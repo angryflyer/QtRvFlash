@@ -425,7 +425,8 @@ void MainWindow::about()
 {
 //    QMessageBox::information(NULL,QStringLiteral("关于"),QStringLiteral("名称：RvFlash\n版本：V1.1\n时间：2022-04-29"),QStringLiteral("确定"));
 //    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.2\nTime    ：2022-12-13"),QStringLiteral("Confirm"));
-    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.3\nTime    ：2023-04-13"),QStringLiteral("Confirm"));
+//    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.3\nTime    ：2023-04-13"),QStringLiteral("Confirm"));
+    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.4\nTime    ：2023-04-17"),QStringLiteral("Confirm"));
 }
 
 void MainWindow::help()
@@ -632,9 +633,11 @@ void MainWindow::doSomething(void)
     my_thread->start();
 }
 
-void MainWindow::updateProgress(int p, const char* msg, int type)
+void MainWindow::updateProgress(int p, float speed, const char* msg, int type)
 {
+    QString speedMsg;
     static time_t ltime;
+
     ltime = time(NULL);
     if(threadstart == (type & 0x3))
     ui->console->LOGI(msg, asctime(localtime(&ltime)));
@@ -661,6 +664,11 @@ void MainWindow::updateProgress(int p, const char* msg, int type)
 //    if((threadend | writetype) == type)  statusLabel->setText(QStringLiteral("写入完成"));
     if((threadstart | writetype) == type)  statusLabel->setText(QStringLiteral("Writing"));
     if((threadend | writetype) == type)  statusLabel->setText(QStringLiteral("Write successed"));
+    if((threadworking | writetype) == type)
+    {
+        speedMsg = speedMsg.sprintf("Writing %.1fKB/s", speed);
+        statusLabel->setText(speedMsg);
+    }
     if((threadworking | writeerror) == type)
     {
 //        statusLabel->setText(QStringLiteral("写入错误"));
@@ -675,6 +683,11 @@ void MainWindow::updateProgress(int p, const char* msg, int type)
 //    if((threadend | readtype) == type)  statusLabel->setText(QStringLiteral("读取完成"));
     if((threadstart | readtype) == type)  statusLabel->setText(QStringLiteral("Reading"));
     if((threadend | readtype) == type)  statusLabel->setText(QStringLiteral("Read succeeded"));
+    if((threadworking | readtype) == type)
+    {
+        speedMsg = speedMsg.sprintf("Verifying %.1fKB/s", speed);
+        statusLabel->setText(speedMsg);
+    }
     if((threadworking | readerror) == type)
     {
 //        statusLabel->setText(QStringLiteral("校验错误"));
@@ -687,6 +700,11 @@ void MainWindow::updateProgress(int p, const char* msg, int type)
 
 //    if((threadstart | readouttype) == type)  statusLabel->setText(QStringLiteral("正在读取"));
     if((threadstart | readouttype) == type)  statusLabel->setText(QStringLiteral("Reading"));
+    if((threadworking | readouttype) == type)
+    {
+        speedMsg = speedMsg.sprintf("Reading %.1fKB/s", speed);
+        statusLabel->setText(speedMsg);
+    }
     if((threadend | readouttype) == type)
     {
 //        statusLabel->setText(QStringLiteral("读取完成"));
@@ -781,7 +799,7 @@ void MainWindow::timerElapsedInit()
     ui->statusbar->addWidget(timerElapsedLable);
 
 //    timerElapsedLable->setText(QStringLiteral("耗时："));
-    timerElapsedLable->setText(QStringLiteral("Time consuming："));
+    timerElapsedLable->setText(QStringLiteral("Elapsed time："));
 
 }
 
@@ -789,7 +807,7 @@ void MainWindow::timerElapsedInit()
 void MainWindow::timerElapsed()
 {
 //    QString timeconsumption = QStringLiteral("耗时：");
-    QString timeconsumption = QStringLiteral("Time consuming：");
+    QString timeconsumption = QStringLiteral("Elapsed time：");
 
     QTime mstime = QTime::currentTime();//get current time
 
