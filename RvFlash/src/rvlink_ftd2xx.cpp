@@ -602,8 +602,8 @@ BOOL WriteDataAndCheckACK(ULONGLONG dwAddr,ULONGLONG dwData,BYTE dwAddrBitW,BYTE
 }
 
 // check ack   : only in last burst,
-// max transfer: 8192 * 4 = 32KByte,
-// dwBurstLen  : dwBurstLen <= 8192 when dwDataBitW equal 32
+// max transfer: 1024 * 4 = 4KByte,
+// dwBurstLen  : dwBurstLen <= 1024 when dwDataBitW equal 32
 BOOL WriteDataBurst(ULONGLONG dwAddr, ULONGLONG *dwData, BYTE dwAddrBitW, BYTE dwDataBitW, DWORD dwBurstLen)
 {
     FT_STATUS ftStatus = FT_OK;
@@ -613,7 +613,7 @@ BOOL WriteDataBurst(ULONGLONG dwAddr, ULONGLONG *dwData, BYTE dwAddrBitW, BYTE d
     DWORD dwBurstCount;
     BYTE dwGetAck = 0xff;
     rcvdat rcvdata = {0xff, 0xff, 0xff};
-    // max transfer 8192 * 4 = 32KByte
+    // max transfer 1024 * 4 = 4KByte
     BYTE dwDataSend[8192][18] = {{0}};
     BYTE Parity = 1;
     BYTE Array = 0;
