@@ -40,13 +40,15 @@ enum flashtype
 
 struct flashCtrl
 {
-    BOOL eraseFlag = false;
-    BOOL writeFlag = false;
+    BOOL eraseFlag  = false;
+    BOOL writeFlag  = false;
     BOOL verifyFlag = false;
-    BOOL readFlag = false;
-    BOOL autoEraseFlag = false;
-    BOOL autoWriteFlag = true;
+    BOOL readFlag   = false;
+    BOOL runFlag    = false;
+    BOOL autoEraseFlag  = false;
+    BOOL autoWriteFlag  = true;
     BOOL autoVerifyFlag = false;
+    BOOL autoRunFlag    = false;
     BOOL autoFlag = false;
 
     //char fileName[100] = ".\\test_case\\freertos_mtp_i2c0_32MHz.bin";
@@ -62,9 +64,11 @@ struct flashCtrl
 
 struct sysCtrl
 {
-    ULONGLONG pcAddr  = 0xffff0000;
-    ULONGLONG rstAddr = 0xffff0004;
-    ULONGLONG pcValue = 0x80000000;
+    ULONGLONG pcAddr          = 0xffff0000;
+    ULONGLONG rstAddr         = 0xffff0004;
+    ULONGLONG pcValue         = 0x80000000;
+    ULONGLONG holdRstValue    = 0x8000001f;
+    ULONGLONG releaseRstValue = 0x80000000;
 };
 
 extern sysCtrl sysCtl;

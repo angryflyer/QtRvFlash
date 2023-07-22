@@ -47,8 +47,6 @@ protected:
 
 private slots:
 
-    void on_pushButtonExit_clicked();
-
     void on_pushButtonConnect_clicked();
 
     void on_pushButtonRead_clicked();
@@ -58,6 +56,8 @@ private slots:
     void on_pushButtonProgram_clicked();
 
     void on_pushButtonVerify_clicked();
+
+    void on_pushButtonRun_clicked();
 
     void on_pushButtonAuto_clicked();
 
@@ -88,6 +88,8 @@ private slots:
     void on_checkBoxProgram_stateChanged(int arg1);
 
     void on_checkBoxVerify_stateChanged(int arg1);
+
+    void on_checkBoxRun_stateChanged(int arg1);
 
     void doSomething(void);
 

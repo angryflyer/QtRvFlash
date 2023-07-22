@@ -105,9 +105,15 @@ MainWindow::~MainWindow()
 //    delete cmd_buffer;
 }
 
-void MainWindow::on_pushButtonExit_clicked()
+void MainWindow::on_pushButtonRun_clicked()
 {
-    MainWindow::close();
+    flashCtl.runFlag = true;
+    if(false == checkStatus() || false == checkConnect() || false == checkCurrentFile())
+    {
+        flashctl_reset();
+        return;
+    }
+    my_thread->start();
 }
 
 void MainWindow::on_pushButtonConnect_clicked()
@@ -426,7 +432,8 @@ void MainWindow::about()
 //    QMessageBox::information(NULL,QStringLiteral("关于"),QStringLiteral("名称：RvFlash\n版本：V1.1\n时间：2022-04-29"),QStringLiteral("确定"));
 //    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.2\nTime    ：2022-12-13"),QStringLiteral("Confirm"));
 //    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.3\nTime    ：2023-04-13"),QStringLiteral("Confirm"));
-    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.4\nTime    ：2023-04-17"),QStringLiteral("Confirm"));
+//    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.4\nTime    ：2023-04-17"),QStringLiteral("Confirm"));
+      QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.5\nTime    ：2023-05-08"),QStringLiteral("Confirm"));
 }
 
 void MainWindow::help()
@@ -625,6 +632,22 @@ void MainWindow::on_checkBoxVerify_stateChanged(int arg1)
     else
     {
         flashCtl.autoVerifyFlag = false;
+    }
+}
+
+void MainWindow::on_checkBoxRun_stateChanged(int arg1)
+{
+    if(ui->checkBoxRun->isChecked())
+    {
+        flashCtl.autoRunFlag   = true;
+        sysCtl.holdRstValue    = 0x8000001f; // run to rst pc
+        sysCtl.releaseRstValue = 0x80000000;
+    }
+    else
+    {
+        flashCtl.autoRunFlag   = true;
+        sysCtl.holdRstValue    = 0x0000001f; // run to debug loop
+        sysCtl.releaseRstValue = 0x00000000;
     }
 }
 
@@ -1301,8 +1324,11 @@ bool MainWindow::configInit()
         ui->checkBoxErase->setChecked(true);
         ui->checkBoxVerify->setEnabled(true);
         ui->checkBoxVerify->setChecked(true);
+        ui->checkBoxRun->setEnabled(true);
+        ui->checkBoxRun->setChecked(true);
         flashCtl.autoEraseFlag = true;
         flashCtl.autoVerifyFlag = true;
+        flashCtl.autoRunFlag = true;
     }
     else
     {
@@ -1313,8 +1339,21 @@ bool MainWindow::configInit()
         ui->checkBoxErase->setChecked(false);
         ui->checkBoxVerify->setEnabled(true);
         ui->checkBoxVerify->setChecked(false);
+        ui->checkBoxRun->setEnabled(true);
+        ui->checkBoxRun->setChecked(true);
         flashCtl.autoEraseFlag = false;
         flashCtl.autoVerifyFlag = false;
+        flashCtl.autoRunFlag = true;
+
+//        ui->pushButtonConnect->setEnabled(true);
+//        ui->pushButtonRead->setEnabled(true);
+//        ui->pushButtonErase->setEnabled(false);
+//        ui->checkBoxErase->setEnabled(false);
+//        ui->checkBoxErase->setChecked(false);
+//        ui->checkBoxVerify->setEnabled(true);
+//        ui->checkBoxVerify->setChecked(false);
+//        flashCtl.autoEraseFlag = true;
+//        flashCtl.autoVerifyFlag = true;
     }
 //    rvStatus   = ft_dev_init(waitfreq);
 //    rvStatus  &= ft_close();

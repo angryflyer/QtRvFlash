@@ -294,18 +294,19 @@ BOOL sysHoldReset()
     BYTE dataBitW = 32;
     if(flashCtl.proj == 1)
     {
-        do
-        {
-            rdata = 0;
-            rvStatus  = ReadDataAndCheckACK(sysCtl.rstAddr, &rdata, addrBitW, dataBitW);
-            dwCount--;
-            if (dwCount == 0)
-            {
-                break;
-            }
-        } while (rvStatus == FALSE);
-        rdata    = (rdata & 0x7fffffe0) | 0x8000001f;
-        rvStatus &= WriteDataAndCheckACK(sysCtl.rstAddr, rdata, addrBitW, dataBitW);
+//        do
+//        {
+//            rdata = 0;
+//            rvStatus  = ReadDataAndCheckACK(sysCtl.rstAddr, &rdata, addrBitW, dataBitW);
+//            dwCount--;
+//            if (dwCount == 0)
+//            {
+//                break;
+//            }
+//        } while (rvStatus == FALSE);
+//        rdata    = value;
+//        rvStatus &= WriteDataAndCheckACK(sysCtl.rstAddr, rdata, addrBitW, dataBitW);
+        rvStatus &= WriteDataAndCheckACK(sysCtl.rstAddr, sysCtl.holdRstValue, addrBitW, dataBitW);
     }
 
     return rvStatus;
@@ -318,7 +319,7 @@ BOOL sysReleaseReset()
     BYTE dataBitW = 32;
     if(flashCtl.proj == 1)
     {
-        rvStatus = WriteDataAndCheckACK(sysCtl.rstAddr, 0x80000000, addrBitW, dataBitW);
+        rvStatus = WriteDataAndCheckACK(sysCtl.rstAddr, sysCtl.releaseRstValue, addrBitW, dataBitW);
     }
 
     return rvStatus;
