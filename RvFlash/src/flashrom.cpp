@@ -148,7 +148,7 @@ BOOL chipConnect(void)
     ltime = time(NULL);
     fprintf(stderr, "Start connecting to soc @ %s\n", asctime(localtime(&ltime)));
 
-    rvStatus = rv_read(STATION_SLOW_IO_SCU_FRST2S_BLOCKS_ADDR, &rdata);
+    rvStatus = rv_read(STATION_SLOW_IO_SCU_FRST2S_BLOCKS_ADDR, (ULONGLONG*)&rdata);
 
     if(0x303 == rdata) {
         rvStatus = rv_write(STATION_ORV32_S2B_CFG_RST_PC_ADDR, mtp_base_addr); //set rst pc to mtp base addr
@@ -173,7 +173,7 @@ BOOL chipConnect(void)
         usleep(10 * 1000);
     }
 
-    rvStatus |= rv_read(STATION_DMA_SYSTEM_CFG_ADDR, &rdata);
+    rvStatus |= rv_read(STATION_DMA_SYSTEM_CFG_ADDR, (ULONGLONG*)&rdata);
 
     if (((rdata & 0xffffffff) != 0x8c00c801) || (rvStatus == FALSE))
     {

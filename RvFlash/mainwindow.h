@@ -6,7 +6,9 @@
 #include <QTime>
 #include <QLabel>
 #include "flashthread.h"
+#ifdef _WIN32
 #include "usb_listener.h"
+#endif
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
@@ -113,7 +115,9 @@ private:
 
     QTime baseTime;
     QString showStr;
+#ifdef _WIN32
     usb_listener *m_usb_listener = Q_NULLPTR;
+#endif
 //    Console *m_console = nullptr;
     char *write_buffer;
     char *read_buffer;

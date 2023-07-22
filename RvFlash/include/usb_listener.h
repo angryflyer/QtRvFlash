@@ -2,7 +2,9 @@
 #define USB_LISTENER_H
 
 #include <QWidget>
+#ifdef _WIN32
 #include <windows.h>
+#endif
 #include <QAbstractNativeEventFilter>
 #include <dbt.h>
 

@@ -1,7 +1,11 @@
 #ifndef FLASHCFG_H
 #define FLASHCFG_H
 
+#ifdef _WIN32
 #include <windows.h>
+#else
+#include "WinTypes.h"
+#endif
 #include "sw_header.h"
 
 #define bufsize      ((ULONGLONG)500 * 1024 * 1024) //100MByte
@@ -40,8 +44,8 @@ enum flashtype
 
 struct flashCtrl
 {
-    BOOL eraseFlag  = false;
-    BOOL writeFlag  = false;
+    BOOL eraseFlag = false;
+    BOOL writeFlag = false;
     BOOL verifyFlag = false;
     BOOL readFlag   = false;
     BOOL runFlag    = false;

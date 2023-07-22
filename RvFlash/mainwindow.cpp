@@ -52,11 +52,12 @@ MainWindow::MainWindow(QWidget *parent)
 
     timerElapsedLable = new QLabel(this);
 
+#ifdef _WIN32
     m_usb_listener = new usb_listener();
+    qApp->installNativeEventFilter(m_usb_listener);
+#endif
 
     qRegisterMetaType<uint64_t>("uint64_t");
-
-    qApp->installNativeEventFilter(m_usb_listener);
 
     //initial default flash address
     //connect(ui->lineEditAddress, &QLineEdit::editingFinished, this, &MainWindow::on_lineEditAddress_editingFinished);
@@ -77,6 +78,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(ui->console, &Console::getData, this, &MainWindow::consoleDebug);
 
+#ifdef _WIN32
     connect(m_usb_listener, &usb_listener::DevicePlugOut, [=](){
         //do something...
         if(~ft_listdevices) {
@@ -86,7 +88,7 @@ MainWindow::MainWindow(QWidget *parent)
 //        qDebug("do something...");
 
     });
-
+#endif
     QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8")); //设置编码
 
     RvFlashInit();
@@ -99,7 +101,9 @@ MainWindow::~MainWindow()
     delete stimer;
     delete timeDataLable;
     delete statusLabel;
+#ifdef _WIN32
     delete m_usb_listener;
+#endif
     delete write_buffer;
     delete read_buffer;
 //    delete cmd_buffer;
@@ -1192,7 +1196,7 @@ void MainWindow::consoleDebug(const QByteArray &data)
                 std::string target = tokenQ[2];
                 if (*p == 0) {
                   if (target == "rb") {
-                    rvStatus = rv_do_read(addr, &data);
+                    rvStatus = rv_do_read(addr, (ULONGLONG*)&data);
                   } else if (target == "dma") {
                     // rv_do_write(STATION_DMA_DMA_DEBUG_ADDR_ADDR, addr);
                     // rv_do_write(STATION_DMA_DMA_DEBUG_REQ_TYPE_ADDR, 0);
@@ -1201,7 +1205,7 @@ void MainWindow::consoleDebug(const QByteArray &data)
                     //rv_do_write(STATION_DT_DBG_ADDR_ADDR, addr);
                     //data = rv_do_read(STATION_DT_DBG_DATA_ADDR);
                   } else {
-                    rvStatus = rv_do_read(addr, &data);
+                    rvStatus = rv_do_read(addr, (ULONGLONG*)&data);
                   }
                    ui->console->LOGI("Do Read to Addr 0x%llx, Got Data 0x%llx\n", addr, data);
                 }
@@ -1235,7 +1239,7 @@ void MainWindow::consoleDebug(const QByteArray &data)
                     ui->console->LOGI("addr_lo = 0x%llx, addr_hi = 0x%llx\n", addr_lo, addr_hi);
                     for (uint64_t addr = addr_lo; addr <= addr_hi; addr += ((flashCtl.proj == 0) ? 8 : 4)) {
                         if (target == "rb") {
-                          rvStatus = rv_do_read(addr, &data);
+                          rvStatus = rv_do_read(addr, (ULONGLONG*)&data);
                         } else if (target == "dma") {
                           // rv_do_write(STATION_DMA_DMA_DEBUG_ADDR_ADDR, addr);
                           // rv_do_write(STATION_DMA_DMA_DEBUG_REQ_TYPE_ADDR, 0);
@@ -1244,7 +1248,7 @@ void MainWindow::consoleDebug(const QByteArray &data)
                           //rv_do_write(STATION_DT_DBG_ADDR_ADDR, addr);
                           //rvStatus = rv_do_read(STATION_DT_DBG_DATA_ADDR, &data);
                         } else {
-                          rvStatus = rv_do_read(addr, &data);
+                          rvStatus = rv_do_read(addr, (ULONGLONG*)&data);
                         }
 
                         ui->console->LOGI("0x%llx: 0x%08llx\n", addr + 0, (data >>  0) & 0xffffffff);
@@ -1292,7 +1296,7 @@ bool MainWindow::configInit()
     //读取数据
     QDataStream readDataStream(&file);
     readDataStream.readRawData((char*)tempBuffer,fileSize);//读取数据到缓存
-
+#ifdef _WIN32
     for (int i = 0; i < fileSize; i++) {
        if (std::strncmp(&tempBuffer[i], "SPEED=", 6) == 0) {
          waitfreq = std::atoi(&tempBuffer[i] + 6);
@@ -1302,7 +1306,17 @@ bool MainWindow::configInit()
          flashCtl.proj = std::atoi(&tempBuffer[i] + 5);
        }
      }
-
+#else
+    for (int i = 0; i < fileSize; i++) {
+       if (strncmp(&tempBuffer[i], "SPEED=", 6) == 0) {
+         waitfreq = atoi(&tempBuffer[i] + 6);
+       } else if (strncmp(&tempBuffer[i], "WAITTIME=", 9) == 0) {
+         waitlevel = atoi(&tempBuffer[i] + 9);
+       } else if (strncmp(&tempBuffer[i], "PROJ=", 5) == 0) {
+         flashCtl.proj = atoi(&tempBuffer[i] + 5);
+       }
+     }
+#endif
     ui->console->LOGI(QString(QStringLiteral("Config Speed     @ %dKHz\n")).toStdString().data(),waitfreq);//rvlink/test io clk frequency
     ui->console->LOGI(QString(QStringLiteral("Config Gap       @ %dus\n")).toStdString().data(),waitlevel);//stable time of read data
     if(flashCtl.proj == 0)

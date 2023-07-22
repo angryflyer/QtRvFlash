@@ -273,7 +273,7 @@ BOOL FlashThread::flashReadOut()
 
     if(FALSE == rvStatus) {
         emit progress(i, speed, "Working...\n", readouterror | threadworking);
-        Sleep(20);
+        usleep(20 * 1000);
         return FALSE;
     }
     else
@@ -332,7 +332,7 @@ BOOL FlashThread::flashRead()
 
     if(FALSE == rvStatus) {
 //        emit progress(i, speed, "Working...\n", readerror | threadworking);
-        Sleep(20);
+        usleep(20 * 1000);
         return FALSE;
     }
     emit progress(i, speed, "Done Reading data from memory @ %s\n", readtype | threadend);
@@ -387,7 +387,7 @@ void FlashThread::flashAuto()
     if(flashCtl.autoEraseFlag)
     {
         flashErase();
-        Sleep(20);//delay for message handled
+        usleep(20 * 1000);//delay for message handled
     }
     if(flashCtl.autoWriteFlag)
     {
@@ -400,7 +400,7 @@ void FlashThread::flashAuto()
             rvStatus = flashWriteBurst();
         }
         if(FALSE == rvStatus) return;
-        Sleep(20);//delay for message handled
+        usleep(20 * 1000);//delay for message handled
     }
     if(flashCtl.autoVerifyFlag)
     {

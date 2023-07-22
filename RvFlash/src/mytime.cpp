@@ -1,6 +1,14 @@
 #include "mytime.h"
 #include <chrono>
 
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include "WinTypes.h"
+#include <sys/select.h>
+#endif
+
+#ifdef _WIN32
 void usleep(unsigned long usec)
 {
     LARGE_INTEGER    dwStart;
@@ -27,7 +35,18 @@ void usleep(unsigned long usec)
         QueryPerformanceCounter(&dwCurrent);
     }
 }
+#else
+void usleep(unsigned long usec)
+{
+    struct timeval tval;
 
+    tval.tv_sec=usec/1000000;
+
+    tval.tv_usec=(usec)%1000000;
+
+    select(0,NULL,NULL,NULL,&tval);
+}
+#endif
 /*
 void gettimeofday(struct timeval *tp, void *tzp)
 {
