@@ -8,6 +8,7 @@
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
+//    QApplication::addLibraryPath("./plugins");
 
     a.setStyle(QStyleFactory::create("fusion"));
     QTranslator translator;

@@ -10,30 +10,32 @@
 //#pragma comment(lib, "FTD2XX.lib")
 #include "ftd2xx.h"
 //============================================================================
-	const BYTE AA_ECHO_CMD_1 = '\xAA';
-	const BYTE AB_ECHO_CMD_2 = '\xAB';
-	const BYTE BAD_COMMAND_RESPONSE = '\xFA';
-	const BYTE LOOP_BACK_ENA = '\x84';  //enable loop-back , internel connect TDI to TDO
-    const BYTE LOOP_BACK_DISA = '\x85'; //disable loop-back
+    const BYTE AA_ECHO_CMD_1                   = '\xAA';
+    const BYTE AB_ECHO_CMD_2                   = '\xAB';
+    const BYTE BAD_COMMAND_RESPONSE            = '\xFA';
+    const BYTE LOOP_BACK_ENA                   = '\x84'; //enable loop-back , internel connect TDI to TDO
+    const BYTE LOOP_BACK_DISA                  = '\x85'; //disable loop-back
 
-	const BYTE MSB_VEDGE_CLOCK_IN_BIT = '\x22';
-	const BYTE MSB_EDGE_CLOCK_OUT_BYTE = '\x11';
-	const BYTE MSB_EDGE_CLOCK_IN_BYTE = '\x24';
+    const BYTE MSB_VEDGE_CLOCK_IN_BIT          = '\x22';
+    const BYTE MSB_EDGE_CLOCK_OUT_BYTE         = '\x11';
+    const BYTE MSB_EDGE_CLOCK_IN_BYTE          = '\x24';
 
-	const BYTE MSB_RISING_EDGE_CLOCK_BYTE_IN = '\x20';
-	const BYTE MSB_FALLING_EDGE_CLOCK_BYTE_IN = '\x24';
+    const BYTE MSB_RISING_EDGE_CLOCK_BYTE_IN   = '\x20';
+    const BYTE MSB_FALLING_EDGE_CLOCK_BYTE_IN  = '\x24';
 	const BYTE MSB_FALLING_EDGE_CLOCK_BYTE_OUT = '\x11';
-	const BYTE MSB_DOWN_EDGE_CLOCK_BIT_IN = '\x26';
-	const BYTE MSB_UP_EDGE_CLOCK_BYTE_IN = '\x20';
-	const BYTE MSB_UP_EDGE_CLOCK_BYTE_OUT = '\x10';
-	const BYTE MSB_RISING_EDGE_CLOCK_BIT_IN = '\x22';
-    const BYTE MSB_RISING_EDGE_CLOCK_BIT_OUT = '\x12';
-    const BYTE MSB_FALLING_EDGE_CLOCK_BIT_OUT = '\x13';
+    const BYTE MSB_DOWN_EDGE_CLOCK_BIT_IN      = '\x26';
+    const BYTE MSB_UP_EDGE_CLOCK_BYTE_IN       = '\x20';
+    const BYTE MSB_UP_EDGE_CLOCK_BYTE_OUT      = '\x10';
+    const BYTE MSB_RISING_EDGE_CLOCK_BIT_IN    = '\x22';
+    const BYTE MSB_RISING_EDGE_CLOCK_BIT_OUT   = '\x12';
+    const BYTE MSB_FALLING_EDGE_CLOCK_BIT_OUT  = '\x13';
 
 //  extern parameters
-	DWORD waitfreq = 2000;//KHz
-	DWORD waitlevel = 1;
-    DWORD ft_listdevices = false;
+    DWORD ft_freq        = 2000; //KHz
+    DWORD ft_wait_time   = 1;    //us
+    DWORD ft_list_device = false;
+    DWORD ft_dev_index   = 0;    //devIndex
+    char  ft_product[64] = "RVLINK";
 
 	#define dwTesioWriteFlag           (UCHAR) 1
 	#define dwTesioReadFlag            (UCHAR) 0
@@ -44,28 +46,27 @@
 	#define waitMtpEraseTime           (ULONG) 130*1000   //erase need at least 120ms,sector and chip erase:120ms, unit:us
 	#define waitMtpProgTime            (ULONG) 1*500     //normal at least 1ms mtp program byte:55us,unit:us
 	#define waitTime                   (ULONG) 50         //normal 50us for stable data,unit:us
-	#define rvlinkSpeed                (waitfreq)
+    #define rvlinkSpeed                (ft_freq)
 	#define AckWaitByte(waitime,freq)  ((waitime * freq / 1000) / 8) //convert wait time to number of bytes(clkout for receive only)
-	#define waitStableTime		       (((waitByteTh + 1) * 8) * 1.f / waitfreq)
+    #define waitStableTime		       (((waitByteTh + 1) * 8) * 1.f / ft_freq)
 //	#define waitStableTh               ceil((rvlinkSpeed <= 50) ? (waitStableTime * 4) : (rvlinkSpeed <= 100) ? (waitStableTime * 5) : (rvlinkSpeed < 1000) ? (waitStableTime * 20) : 4) //affect connect speed              
 //  #define waitStableTh               (waitStableTime)
     #define waitStableTh               (UCHAR) 0
 //	#define waitDataStableTime         ((waitStableTime > waitStableTh) ? waitStableTime : waitStableTh)
     #define waitDataStableTime         (waitStableTh)
 
-	#define waitMtpEraseByte           (AckWaitByte(waitMtpEraseTime,waitfreq) > waitByteTh ? AckWaitByte(waitMtpEraseTime,waitfreq) : waitByteTh)
-	#define waitMtpProgByte            (AckWaitByte(waitMtpProgTime,waitfreq) > waitByteTh ? AckWaitByte(waitMtpProgTime,waitfreq) : waitByteTh)
-	#define waitByte                   (AckWaitByte(waitTime,waitfreq) > waitByteTh ? AckWaitByte(waitTime,waitfreq) : waitByteTh)
+    #define waitMtpEraseByte           (AckWaitByte(waitMtpEraseTime,ft_freq) > waitByteTh ? AckWaitByte(waitMtpEraseTime,ft_freq) : waitByteTh)
+    #define waitMtpProgByte            (AckWaitByte(waitMtpProgTime,ft_freq) > waitByteTh ? AckWaitByte(waitMtpProgTime,ft_freq) : waitByteTh)
+    #define waitByte                   (AckWaitByte(waitTime,ft_freq) > waitByteTh ? AckWaitByte(waitTime,ft_freq) : waitByteTh)
 //    #define rwcycle                    (DWORD) 10
 //    #define timeoutvalue               (DWORD) 100
     #define rwcycle                    (DWORD) 1000
     #define timeoutvalue               (DWORD) 300
 //	#define Parity         1
 
-/* 从data中获取第n bit的值 注：data只能为uint8*类型指针 */
+/* get the n bit from data, data type: uint8* only */
     #define GET_BIT_N_VAL(data, n)  \
             (0x1 & (( *((data) + (n)/8) & (0x1 << ((n)%8)) ) >> ((n)%8)))
-
 
 	FT_STATUS ftStatus;			//Status defined in D2XX to indicate operation result
 	FT_HANDLE ftHandle;			//Handle of FTD2XX device port 
@@ -83,6 +84,7 @@
     BYTE dwAddr_Array[5] = {0};
 	BYTE dwData_Array[8] = {0};
 	BYTE STRB = 0xff;
+    char Buf[64];
     DWORD timeoutcounter = 0;
 
 	BYTE ByteDataRead;//ByteAddress
@@ -90,28 +92,27 @@
 	BYTE ByteDataToBeSend = 0x5A;							//data programmed and read
 //////////////////////////////////////////////////////////////////    
 	BOOL ft_dev_init(DWORD speed);
-	BYTE soc_gen_even_parity_common(BYTE *entry_data, WORD entry_len);
-    BYTE soc_gen_odd_parity_common(BYTE *entry_data, WORD entry_len);
+    BYTE gen_even_parity(BYTE *entry_data, WORD entry_len);
+    BYTE gen_odd_parity(BYTE *entry_data, WORD entry_len);
     BOOL WriteDataAndCheckACK(ULONGLONG dwAddr,ULONGLONG dwData, BYTE dwAddrBitW, BYTE dwDataBitW);
-//    BOOL ReadDataAndCheckACK(ULONGLONG dwAddr, ULONGLONG *dwGetData, BYTE dwAddrBitW, BYTE dwDataBitW, BYTE *ptBuffer, ULONGLONG *ptNum);
     BOOL ReadDataAndCheckACK(ULONGLONG dwAddr, ULONGLONG *dwGetData, BYTE dwAddrBitW, BYTE dwDataBitW);
     BYTE RotateLeft(BYTE *InputData , DWORD Lenth , DWORD ShiftLenth);
-    BYTE InputDataHandle(ULONGLONG *dwDataHandled, rcvdat *dwAckData, BYTE *InputData, DWORD InputDataLenth, BYTE rwType);
-    BYTE ft_listdevice(void);
+    BYTE HandleData(ULONGLONG *dwDataHandled, rcvdat *dwAckData, BYTE *InputData, DWORD InputDataLenth, BYTE rwType);
+    BYTE ft_list_dev(void);
 //////////////////////////////////////////////////////////////////
-BYTE soc_gen_even_parity_common(BYTE *entry_data, WORD entry_len)
+BYTE gen_even_parity(BYTE *entry_data, WORD entry_len)
 {
     DWORD i = 0;
     DWORD even_parity = 0;
     for(i = 0; i < entry_len; i++)                  
     {                                                                              
-        even_parity += GET_BIT_N_VAL((entry_data), i);                 
+        even_parity += GET_BIT_N_VAL((entry_data), i);
     }
 
     return (even_parity & 0x1);
 }
 
-BYTE soc_gen_odd_parity_common(BYTE *entry_data, WORD entry_len)
+BYTE gen_odd_parity(BYTE *entry_data, WORD entry_len)
 {
     DWORD i = 0;
     DWORD odd_parity = 0;
@@ -154,7 +155,7 @@ BYTE RotateLeft(BYTE *InputData , DWORD Lenth , DWORD ShiftLenth)
     return true;
 }
 
-BYTE InputDataHandle(ULONGLONG *dwDataHandled, rcvdat *dwAckData, BYTE *InputData, DWORD InputDataLenth, BYTE rwType)
+BYTE HandleData(ULONGLONG *dwDataHandled, rcvdat *dwAckData, BYTE *InputData, DWORD InputDataLenth, BYTE rwType)
 {
 	DWORD dwSeekCount, dwDataBitCount;
 	DWORD dwCount;
@@ -239,24 +240,31 @@ BOOL ft_dev_init(DWORD speed)
 	//////////////////////////////////////////////////////////////////
 	
 	DWORD dwCount;
-    DWORD devIndex = 0;
-	char Buf[64];
-//	init linux envrionment
-	// system("sudo lsmod | grep ftdi_sio");//avoid conflict
-	// system("rmmod ftdi_sio");
-	// system("rmmod usbserial");
-	// system("ls /sys/bus/usb/drivers/ftdi_sio");
+//    DWORD ft_dev_index = 0;
+//    char Buf[64] = "RVLINK A";
+//    strcpy(Buf, "RVLINK A");
 
 	dwClockDivisor = 30*1000 / speed - 1; //Value of clock divisor = (30 / freq -1) (30 & freq unit:MHZ)
 //list device information!
-    if(ft_listdevices == true)
+    if(ft_list_device == true)
 	{
-        ft_listdevice();
+        ft_list_dev();
 	}
-//return information of port marked devIndex,such as FT4232HL's devIndex(has 4 ports):0,1,2,3
-	ftStatus = FT_ListDevices((PVOID)devIndex, &Buf, FT_LIST_BY_INDEX | FT_OPEN_BY_DESCRIPTION);
-	ftStatus = FT_OpenEx((PVOID)Buf, FT_OPEN_BY_DESCRIPTION, &ftHandle);
-//    printf("devIndex:%d\n",devIndex);
+//return information of port marked ft_dev_index,such as FT4232HL's ft_dev_index(has 4 ports):0,1,2,3
+    ftStatus = FT_Open(ft_dev_index, &ftHandle);
+    ftStatus = FT_ListDevices((PVOID)ft_dev_index, &Buf, FT_LIST_BY_INDEX | FT_OPEN_BY_DESCRIPTION);
+    fprintf(stderr,"ft_product=%s, strlen(ft_product)=%d\r\n", ft_product, strlen(ft_product));
+    if(strncmp(Buf, ft_product, strlen(ft_product)) != 0)
+    {
+        return false;
+    }
+//    ftStatus = FT_OpenEx((PVOID)Buf, FT_OPEN_BY_DESCRIPTION, &ftHandle);
+//    if(ftStatus != FT_OK)
+//    {
+//        strcpy(Buf, ft_product);
+//        ftStatus = FT_OpenEx((PVOID)Buf, FT_OPEN_BY_DESCRIPTION, &ftHandle);
+//    }
+//    printf("ft_dev_index:%d\n",ft_dev_index);
 
 	if (ftStatus != FT_OK)
     {
@@ -429,7 +437,7 @@ BOOL WriteDataAndCheckACK(ULONGLONG dwAddr,ULONGLONG dwData,BYTE dwAddrBitW,BYTE
 	}
 	//Calculate Parity
     Array = dWSumW;
-	Parity = soc_gen_even_parity_common(&dwDataSend[1],Array*8);
+    Parity = gen_even_parity(&dwDataSend[1],Array*8);
 	Parity = (Parity + dwTesioWriteFlag)%2;
 //	printf("Write Parity=0x%x\n",Parity);
     //Parity and dwTestioStop
@@ -532,7 +540,7 @@ BOOL WriteDataAndCheckACK(ULONGLONG dwAddr,ULONGLONG dwData,BYTE dwAddrBitW,BYTE
 // 	}
 // 	else if((dwAddr >= STATION_SDIO_BASE_ADDR) && (dwAddr < (STATION_SDIO_BASE_ADDR + 8*8*1024)))
 // 	{
-// 		usleep(waitDataStableTime * waitlevel * 1000);
+// 		usleep(waitDataStableTime * ft_wait_time * 1000);
 // 	}
 // 	else
 // 	{
@@ -567,13 +575,13 @@ BOOL WriteDataAndCheckACK(ULONGLONG dwAddr,ULONGLONG dwData,BYTE dwAddrBitW,BYTE
         ftStatus = FT_Read(ftHandle, InputBuffer, dwNumInputBuffer , &dwNumBytesRead);  	//Read dwNumInputBuffer bytes from device receive buffer
 		// static time_t ltime;
 		// ltime = time(NULL);
-		// fprintf(stderr, "Start InputDataHandle @ %s\n", asctime(localtime(&ltime)));
+        // fprintf(stderr, "Start HandleData @ %s\n", asctime(localtime(&ltime)));
 
-        InputDataHandle(&dwDataTemp, &rcvdata, InputBuffer, dwNumBytesRead, dwTesioWriteFlag | (dwDataW << 1));                   //Handle received data
+        HandleData(&dwDataTemp, &rcvdata, InputBuffer, dwNumBytesRead, dwTesioWriteFlag | (dwDataW << 1));                   //Handle received data
         dwGetAck = rcvdata.ack;
 
 		// ltime = time(NULL);
-		// fprintf(stderr, "Done InputDataHandle @ %s\n", asctime(localtime(&ltime))); 
+        // fprintf(stderr, "Done HandleData @ %s\n", asctime(localtime(&ltime)));
 
 		if ((ftStatus != FT_OK) || (dwCount == rwcycle))
 		{
@@ -644,7 +652,7 @@ BOOL WriteDataBurst(ULONGLONG dwAddr, ULONGLONG *dwData, BYTE dwAddrBitW, BYTE d
         }
         //Calculate Parity
         Array  = dWSumW;
-        Parity = soc_gen_even_parity_common(&dwDataSend[dwBurstCount][1], Array*8);
+        Parity = gen_even_parity(&dwDataSend[dwBurstCount][1], Array*8);
         Parity = (Parity + dwTesioWriteFlag) % 2;
     //	printf("Write Parity=0x%x\n",Parity);
         //Parity and dwTestioStop
@@ -775,7 +783,7 @@ BOOL WriteDataBurst(ULONGLONG dwAddr, ULONGLONG *dwData, BYTE dwAddrBitW, BYTE d
 // 	}
 // 	else if((dwAddr >= STATION_SDIO_BASE_ADDR) && (dwAddr < (STATION_SDIO_BASE_ADDR + 8*8*1024)))
 // 	{
-// 		usleep(waitDataStableTime * waitlevel * 1000);
+// 		usleep(waitDataStableTime * ft_wait_time * 1000);
 // 	}
 // 	else
 // 	{
@@ -814,13 +822,13 @@ BOOL WriteDataBurst(ULONGLONG dwAddr, ULONGLONG *dwData, BYTE dwAddrBitW, BYTE d
 
         // static time_t ltime;
         // ltime = time(NULL);
-        // fprintf(stderr, "Start InputDataHandle @ %s\n", asctime(localtime(&ltime)));
+        // fprintf(stderr, "Start HandleData @ %s\n", asctime(localtime(&ltime)));
 
-        InputDataHandle(&dwDataTemp, &rcvdata, InputBuffer, dwNumBytesRead, dwTesioWriteFlag | (dwDataW << 1));                   //Handle received data
+        HandleData(&dwDataTemp, &rcvdata, InputBuffer, dwNumBytesRead, dwTesioWriteFlag | (dwDataW << 1));                   //Handle received data
         dwGetAck = rcvdata.ack;
 
         // ltime = time(NULL);
-        // fprintf(stderr, "Done InputDataHandle @ %s\n", asctime(localtime(&ltime)));
+        // fprintf(stderr, "Done HandleData @ %s\n", asctime(localtime(&ltime)));
 
         if ((ftStatus != FT_OK) || (dwCount == rwcycle))
         {
@@ -874,7 +882,7 @@ BOOL ReadDataAndCheckACK(ULONGLONG dwAddr, ULONGLONG *dwGetData, BYTE dwAddrBitW
 
 	//Calculate Parity
     Array = dWSumW;
-	Parity = soc_gen_even_parity_common(&dwDataSend[1],Array * 8);
+    Parity = gen_even_parity(&dwDataSend[1],Array * 8);
 	Parity = (Parity + dwTesioReadFlag) % 2;
 //	printf("Read Addr Parity=0x%x\n",Parity);
     //Parity and dwTestioStop
@@ -933,7 +941,7 @@ BOOL ReadDataAndCheckACK(ULONGLONG dwAddr, ULONGLONG *dwGetData, BYTE dwAddrBitW
    		OutputBuffer[dwNumBytesToSend++] = waitByte & 0xff;  //num+1 bytes to clock out
 		OutputBuffer[dwNumBytesToSend++] = (waitByte >> 8) & 0xff;
 	}	
-//	printf("readAckWaitByte(waitTime,waitfreq)=0x%x,%d\n",AckWaitByte(waitTime,waitfreq),AckWaitByte(waitTime,waitfreq));
+//	printf("readAckWaitByte(waitTime,ft_freq)=0x%x,%d\n",AckWaitByte(waitTime,ft_freq),AckWaitByte(waitTime,ft_freq));
 
     //flush chip buffer to pc
 	OutputBuffer[dwNumBytesToSend++] = '\x87';	//Send answer back immediate command
@@ -945,8 +953,8 @@ BOOL ReadDataAndCheckACK(ULONGLONG dwAddr, ULONGLONG *dwGetData, BYTE dwAddrBitW
 
 	ftStatus = FT_Write(ftHandle, OutputBuffer, dwNumBytesToSend, &dwNumBytesSent);		//Send off the commands
 
-//    usleep(waitDataStableTime * waitlevel * 1000);  //calc 13bytes * 8bit / 50 = 2.08ms, then 20 *1000us >> 2.08ms for stable data. 
-    usleep(waitlevel);            //for real os only; visual machine: remove it
+//    usleep(waitDataStableTime * ft_wait_time * 1000);  //calc 13bytes * 8bit / 50 = 2.08ms, then 20 *1000us >> 2.08ms for stable data.
+    usleep(ft_wait_time);            //for real os only; visual machine: remove it
 	dwNumBytesToSend = 0;			//Clear output buffer
 	//Check if ACK bit received, may need to read more times to get ACK bit or fail if timeout
 
@@ -975,7 +983,7 @@ BOOL ReadDataAndCheckACK(ULONGLONG dwAddr, ULONGLONG *dwGetData, BYTE dwAddrBitW
 //        *ptNum = dwNumBytesRead;
 //        memcpy(ptBuffer,InputBuffer,dwNumBytesRead);
         ////////////////////////////////////////////////////////////
-        InputDataHandle(&dwData, &rcvdata, InputBuffer, dwNumBytesRead, dwTesioReadFlag | (dwDataW << 1));
+        HandleData(&dwData, &rcvdata, InputBuffer, dwNumBytesRead, dwTesioReadFlag | (dwDataW << 1));
         dwGetAck = rcvdata.ack;
 
     //  printf("Read dwGetAck=%d\n",dwGetAck);
@@ -1017,7 +1025,7 @@ BOOL ReadDataAndCheckACK(ULONGLONG dwAddr, ULONGLONG *dwGetData, BYTE dwAddrBitW
 //                    printf("Do Get dwDataTemp:dwDataTemp[%d]=0x%x\n",i,dwDataTemp[i]);
                 }
                 Array = dwDataW;
-                Parity = ((soc_gen_even_parity_common(dwDataTemp, Array * 8)) + rcvdata.ack) % 2;
+                Parity = ((gen_even_parity(dwDataTemp, Array * 8)) + rcvdata.ack) % 2;
 //                printf("Do Get ReadData:dwData=0x%llx\n",dwData);
         //		printf("calc parity = 0x%x, rcvdata.parity = 0x%x, rcvdata.ack = 0x%x, addr=0x%llx\n", Parity, rcvdata.parity, rcvdata.ack, dwAddr);
                 if(Parity != rcvdata.parity)
@@ -1042,7 +1050,7 @@ BOOL ReadDataAndCheckACK(ULONGLONG dwAddr, ULONGLONG *dwGetData, BYTE dwAddrBitW
     }
 }
 
-BYTE ft_listdevice(void)
+BYTE ft_list_dev(void)
 {
     DWORD numDevs;
     FT_DEVICE_LIST_INFO_NODE* devInfo;
@@ -1169,7 +1177,8 @@ void set_gpiol3(BYTE gpiol3)
 BOOL ft_open(void)
 {
     FT_STATUS ftStatus = FT_OK;
-    ftStatus = FT_Open(0,&ftHandle);
+//    ftStatus = FT_OpenEx((PVOID)Buf, FT_OPEN_BY_DESCRIPTION, &ftHandle);
+    ftStatus = FT_Open(ft_dev_index, &ftHandle);
     if(FT_OK == ftStatus)
     {
         return true;

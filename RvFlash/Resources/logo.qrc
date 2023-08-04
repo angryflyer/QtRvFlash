@@ -2,5 +2,7 @@
     <qresource prefix="/logo"/>
     <qresource prefix="/">
         <file>image/logo.ico</file>
+        <file>image/connect.png</file>
+        <file>image/disconnect.png</file>
     </qresource>
 </RCC>

@@ -8,9 +8,11 @@
 #include "mytime.h"
 #include "ftd2xx.h"
 
-extern DWORD waitfreq;       //default freq KHz, same with rvlink speed for calculating usb waitime
-extern DWORD ft_listdevices; //default list device num and type
-extern DWORD waitlevel;      //adjust wait time of usb bus for get stable data 
+extern DWORD ft_freq;        //default freq KHz, same with rvlink speed for calculating usb waitime
+extern DWORD ft_list_device; //default list device num and type
+extern DWORD ft_wait_time;   //adjust wait time of usb bus for get stable data
+extern DWORD ft_dev_index;
+extern char  ft_product[64];
 
 typedef struct {
     BYTE start;
@@ -33,16 +35,14 @@ void do_write(ULONGLONG addr, ULONGLONG data);
 void do_write_burst(ULONGLONG addr, ULONGLONG burst_data, DWORD burst_idx);
 
 BOOL ft_dev_init(DWORD speed);
-BYTE soc_gen_even_parity_common(BYTE *entry_data, WORD entry_len);
-BYTE soc_gen_odd_parity_common(BYTE *entry_data, WORD entry_len);
+BYTE ft_list_dev(void);
+BYTE gen_even_parity(BYTE *entry_data, WORD entry_len);
+BYTE gen_odd_parity(BYTE *entry_data, WORD entry_len);
 BOOL WriteDataAndCheckACK(ULONGLONG dwAddr, ULONGLONG dwData, BYTE dwAddrBitW, BYTE dwDataBitW);
-//BOOL ReadDataAndCheckACK(ULONGLONG dwAddr, ULONGLONG *dwGetData, BYTE dwAddrBitW, BYTE dwDataBitW, BYTE *ptBuffer, ULONGLONG *ptNum);
 BOOL WriteDataBurst(ULONGLONG dwAddr, ULONGLONG *dwData, BYTE dwAddrBitW, BYTE dwDataBitW, DWORD dwBurstLen);
 BOOL ReadDataAndCheckACK(ULONGLONG dwAddr, ULONGLONG *dwGetData, BYTE dwAddrBitW, BYTE dwDataBitW);
 BYTE RotateLeft(BYTE *InputData , DWORD Lenth , DWORD ShiftLenth);
-//BYTE InputDataHandle(ULONGLONG *dwDataHandled, BYTE *dwAckData, BYTE *InputData, DWORD InputDataLenth, BYTE rwType);
-//BYTE InputDataHandle(ULONGLONG *dwDataHandled, BYTE *dwAckData, BYTE *InputData, DWORD InputDataLenth);
-BYTE InputDataHandle(ULONGLONG *dwDataHandled, rcvdat *dwAckData, BYTE *InputData, DWORD InputDataLenth, BYTE rwType);
+BYTE HandleData(ULONGLONG *dwDataHandled, rcvdat *dwAckData, BYTE *InputData, DWORD InputDataLenth, BYTE rwType);
 
 BOOL ft_open(void);
 

@@ -12,6 +12,8 @@
 #include <QLabel>
 #include <cmath>
 #include <QDesktopServices>
+#include <QDebug>
+//#include <QIcon>
 #include <string>
 #include <string.h>
 #include <stdio.h>
@@ -120,20 +122,20 @@ void MainWindow::on_pushButtonRun_clicked()
     my_thread->start();
 }
 
-void MainWindow::on_pushButtonConnect_clicked()
-{
-    if(false == checkConnect())
-    {
-        return;
-    }
+//void MainWindow::on_pushButtonConnect_clicked()
+//{
+//    if(false == checkConnect())
+//    {
+//        return;
+//    }
 
-    ft_open();
-    process_reset();
-    ft_close();
+//    ft_open();
+//    process_reset();
+//    ft_close();
 
-//    QMessageBox::information(NULL,QStringLiteral("提示！"),QStringLiteral("连接成功！"),QStringLiteral("确定"));
-    QMessageBox::information(NULL,QStringLiteral("Notice！"),QStringLiteral("Connect succeeded！"),QStringLiteral("Confirm"));
-}
+////    QMessageBox::information(NULL,QStringLiteral("提示！"),QStringLiteral("连接成功！"),QStringLiteral("确定"));
+//    QMessageBox::information(NULL,QStringLiteral("Notice！"),QStringLiteral("Connect succeeded！"),QStringLiteral("Confirm"));
+//}
 
 void MainWindow::on_pushButtonRead_clicked()
 {
@@ -159,7 +161,7 @@ void MainWindow::on_pushButtonRead_clicked()
 //{
 //    ULONGLONG data;
 //    ULONGLONG addr = flashCtl.address;
-//    ft_dev_init(waitfreq);
+//    ft_dev_init(ft_freq);
 ////    ReadDataAndCheckACK(addr, &data, 40, 64);
 //    rv_read(addr, &data);
 //    ft_close();
@@ -264,7 +266,7 @@ void MainWindow::open()
         return;
     }
 
-    //将fileName转为char类型存到flashCtl.fileName
+    // convert fileName to char, save it to flashCtl.fileName
     QByteArray filename = fileName.toLocal8Bit();
     flashCtl.fileName = filename.data();
     flashCtl.fileSize = file.size();//get file size/lenth
@@ -284,7 +286,7 @@ void MainWindow::open()
     float lenth = (float)flashCtl.fileSize / 1024;
     ui->console->LOGI("fileName=%s\nfileSize=%.1fK (%dBYTES)\n", flashCtl.fileName, lenth, flashCtl.fileSize);
 
-    //读取数据
+    //read data from file
     QDataStream readDataStream(&file);
 //    statusLabel->setText(QStringLiteral("准备读取数据"));
     statusLabel->setText(QStringLiteral("Reading"));
@@ -303,7 +305,7 @@ void MainWindow::open()
 
     QString addrStr;
 
-    //显示文件内容
+    //display data as hex
     BYTE cnt = 1;
     WORD kcnt = 0;
 //    ULONGLONG * temp = (ULONGLONG* )flashCtl.mtpWriteBuffer;
@@ -437,7 +439,8 @@ void MainWindow::about()
 //    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.2\nTime    ：2022-12-13"),QStringLiteral("Confirm"));
 //    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.3\nTime    ：2023-04-13"),QStringLiteral("Confirm"));
 //    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.4\nTime    ：2023-04-17"),QStringLiteral("Confirm"));
-      QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.5\nTime    ：2023-05-08"),QStringLiteral("Confirm"));
+//    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.5\nTime    ：2023-05-08"),QStringLiteral("Confirm"));
+    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.6\nTime    ：2023-07-25"),QStringLiteral("Confirm"));
 }
 
 void MainWindow::help()
@@ -513,7 +516,7 @@ void MainWindow::on_lineEditDir_editingFinished()
         return;
     }
 
-    //将fileName转为char类型存到flashCtl.fileName
+    //convert fileName to char, save it to flashCtl.fileName
     QByteArray filename = fileName.toLocal8Bit();
     flashCtl.fileName = filename.data();
     flashCtl.fileSize = file.size();//get file size/lenth
@@ -533,7 +536,7 @@ void MainWindow::on_lineEditDir_editingFinished()
     float lenth = (float)flashCtl.fileSize / 1024;
     ui->console->LOGI("fileName=%s\nfileSize=%.1fK (%dBYTES)\n", flashCtl.fileName, lenth, flashCtl.fileSize);
 
-    //读取数据
+    //read data from file
     QDataStream readDataStream(&file);
 //    statusLabel->setText(QStringLiteral("准备读取数据"));
     statusLabel->setText(QStringLiteral("Reading"));
@@ -552,7 +555,7 @@ void MainWindow::on_lineEditDir_editingFinished()
 
     QString addrStr;
 
-    //显示文件内容
+    //display data as hex
     BYTE cnt = 1;
     WORD kcnt = 0;
 //    ULONGLONG * temp = (ULONGLONG* )flashCtl.mtpWriteBuffer;
@@ -870,7 +873,7 @@ void MainWindow::dataToConsole()
     QByteArray *tempByte = new QByteArray(read_buffer, mtpsize);
     QString *tempStr = new QString(tempByte->toHex().toUpper());
     QString addrStr;
-    //显示文件内容
+    //display data as hex
     BYTE cnt = 1;
     WORD kcnt = 0;
 //    ULONGLONG * temp = (ULONGLONG* )flashCtl.mtpWriteBuffer;
@@ -968,13 +971,13 @@ bool MainWindow::checkConnect()
     BYTE ft_connect_count = 0;
     static time_t ltime;
 
-    ft_status = ft_dev_init(waitfreq);
+    ft_status = ft_dev_init(ft_freq);
     ft_status &= ft_close();
 
     //try to recover when connect fail
     while(false == ft_status)
     {
-        ft_status = ft_dev_init(waitfreq);
+        ft_status = ft_dev_init(ft_freq);
         ft_status &= ft_close();
         ft_connect_count ++;
         if(ft_connect_count == 3)
@@ -1055,7 +1058,11 @@ void MainWindow::consoleInit()
     QFont qf;
     qf.setPointSize(12);
     //qf.setFamily("sans-serif");
+#ifdef _WIN32
     qf.setFamily("Source Code Pro");//字体
+#else
+    qf.setFamily("Liberation Mono");
+#endif
     qf.setBold(true);
     //qf.setPixelSize(18);//文字像素大小
     //qf.setStyle(QFont::StyleNormal);
@@ -1070,6 +1077,21 @@ void MainWindow::consoleInit()
     ui->console->setPalette(p);
 
     ui->textEdit->setReadOnly(true);
+
+//    // get font famlily which have same character width
+//    QFontDatabase fontDB;
+//    foreach (const QString& family, fontDB.families())
+//    {
+//        QFont font(family, 8, QFont::Bold);
+//        QFontMetrics fm(font);
+//        int nLen = fm.width(' ');
+//        int nLen0 = fm.width('0');
+//        int nLen1 = fm.width('-');
+//        if (nLen == nLen0 && nLen == nLen1)
+//        {
+//            qDebug()<<family;
+//        }
+//    }
 }
 
 void MainWindow::consoleDebug(const QByteArray &data)
@@ -1091,10 +1113,10 @@ void MainWindow::consoleDebug(const QByteArray &data)
         cmd_valid = true;
         QString str;
         ULONGLONG lineCount = 0;
-        //获取总行数
+        //get line number
         lineCount = ui->console->document()->lineCount();
 //        ui->console->LOGI("lineCount=%d\n",lineCount);
-        //输出某行内容
+        //print data of specified line
         if(lineCount >= 2) {
             str = ui->console->document()->findBlockByLineNumber(lineCount-2).text();
         }
@@ -1157,7 +1179,7 @@ void MainWindow::consoleDebug(const QByteArray &data)
         }
 
         if ((tokenQ.size() == 1) && (tokenQ[0] == "debug")) {
-            if(ft_dev_init(waitfreq)) {
+            if(ft_dev_init(ft_freq)) {
                 cmd_debug = true;
             } else {
                 cmd_debug = false;
@@ -1189,7 +1211,7 @@ void MainWindow::consoleDebug(const QByteArray &data)
                 ui->console->LOGI("This is Help Info\n");
             } else if ((tokenQ[0] == "quit") || (tokenQ[0] == "q") || (tokenQ[0] == "exit")) {
                 cmd_debug = false;
-            } else if ((tokenQ.size() == 3) && (tokenQ[0] == "read")) {
+            } else if ((tokenQ.size() == 3) && ((tokenQ[0] == "read") || (tokenQ[0] == "r"))) {
                 char * p;
                 uint64_t data = 0;
                 uint64_t addr = strtoul(tokenQ[1].c_str(), & p, 16);
@@ -1209,7 +1231,7 @@ void MainWindow::consoleDebug(const QByteArray &data)
                   }
                    ui->console->LOGI("Do Read to Addr 0x%llx, Got Data 0x%llx\n", addr, data);
                 }
-            } else if ((tokenQ.size() == 4) && (tokenQ[0] == "write")) {
+            } else if ((tokenQ.size() == 4) && ((tokenQ[0] == "write") || (tokenQ[0] == "w"))) {
                 char * p;
                 uint64_t addr = strtoul(tokenQ[1].c_str(), & p, 16);
                 uint64_t data = strtoul(tokenQ[2].c_str(), & p, 16);
@@ -1274,6 +1296,7 @@ bool MainWindow::configInit()
 {
     bool rvStatus = false;
     char tempBuffer[mtpsize];
+    char * productBuffer;
     const char *configMsg;
     ULONGLONG fileSize;
     QString fileName, filePath;
@@ -1299,39 +1322,46 @@ bool MainWindow::configInit()
 #ifdef _WIN32
     for (int i = 0; i < fileSize; i++) {
        if (std::strncmp(&tempBuffer[i], "SPEED=", 6) == 0) {
-         waitfreq = std::atoi(&tempBuffer[i] + 6);
+         ft_freq = std::atoi(&tempBuffer[i] + 6);
        } else if (std::strncmp(&tempBuffer[i], "WAITTIME=", 9) == 0) {
-         waitlevel = std::atoi(&tempBuffer[i] + 9);
+         ft_wait_time = std::atoi(&tempBuffer[i] + 9);
        } else if (std::strncmp(&tempBuffer[i], "PROJ=", 5) == 0) {
          flashCtl.proj = std::atoi(&tempBuffer[i] + 5);
+       } else if (std::strncmp(&tempBuffer[i], "PRODUCT=", 8) == 0) {
+         std::strncpy(ft_product, productBuffer, strlen(productBuffer));
+         ui->console->LOGI("Config Product   @ %s\r\n",ft_product);
        }
      }
 #else
     for (int i = 0; i < fileSize; i++) {
        if (strncmp(&tempBuffer[i], "SPEED=", 6) == 0) {
-         waitfreq = atoi(&tempBuffer[i] + 6);
+         ft_freq = atoi(&tempBuffer[i] + 6);
        } else if (strncmp(&tempBuffer[i], "WAITTIME=", 9) == 0) {
-         waitlevel = atoi(&tempBuffer[i] + 9);
+         ft_wait_time = atoi(&tempBuffer[i] + 9);
        } else if (strncmp(&tempBuffer[i], "PROJ=", 5) == 0) {
          flashCtl.proj = atoi(&tempBuffer[i] + 5);
+       } else if (strncmp(&tempBuffer[i], "PRODUCT=", 8) == 0) {
+         productBuffer = strtok(&tempBuffer[i] + 8, " \r\n");
+         strncpy(ft_product, productBuffer, strlen(productBuffer));
+         ui->console->LOGI("Config Product   @ %s\r\n",ft_product);
        }
      }
 #endif
-    ui->console->LOGI(QString(QStringLiteral("Config Speed     @ %dKHz\n")).toStdString().data(),waitfreq);//rvlink/test io clk frequency
-    ui->console->LOGI(QString(QStringLiteral("Config Gap       @ %dus\n")).toStdString().data(),waitlevel);//stable time of read data
+    ui->console->LOGI(QString(QStringLiteral("Config Speed     @ %dKHz\n")).toStdString().data(),ft_freq);//rvlink/test io clk frequency
+    ui->console->LOGI(QString(QStringLiteral("Config Gap       @ %dus\n")).toStdString().data(),ft_wait_time);//stable time of read data
     if(flashCtl.proj == 0)
     {
-       configMsg = "Config PROJ      @ PEP\n";
+       configMsg = "Config Proj      @ PEP\n";
     }
     else
     {
-       configMsg = "Config PROJ      @ 506\n";
+       configMsg = "Config Proj      @ 506\n";
     }
     ui->console->LOGI(configMsg);//stable time of read data
 
     if(flashCtl.proj == 0)
     {
-        ui->pushButtonConnect->setEnabled(true);
+//        ui->pushButtonConnect->setEnabled(true);
         ui->pushButtonRead->setEnabled(true);
         ui->pushButtonErase->setEnabled(true);
         ui->checkBoxErase->setEnabled(true);
@@ -1346,7 +1376,7 @@ bool MainWindow::configInit()
     }
     else
     {
-        ui->pushButtonConnect->setEnabled(false);
+//        ui->pushButtonConnect->setEnabled(false);
         ui->pushButtonRead->setEnabled(false);
         ui->pushButtonErase->setEnabled(false);
         ui->checkBoxErase->setEnabled(false);
@@ -1369,31 +1399,39 @@ bool MainWindow::configInit()
 //        flashCtl.autoEraseFlag = true;
 //        flashCtl.autoVerifyFlag = true;
     }
-//    rvStatus   = ft_dev_init(waitfreq);
-//    rvStatus  &= ft_close();
-//    DWORD numDevs;
-//    FT_DEVICE_LIST_INFO_NODE* devInfo;
-//    FT_STATUS ftStatus;
-//    ftStatus = FT_CreateDeviceInfoList(&numDevs);
-//    if (ftStatus == FT_OK)
-//    {
-//        ui->console->LOGI("Number of devices is %d\n", numDevs);
-//    }
-//    else
-//    {
-//        ui->console->LOGI("FT_CreateDeviceInfoList failed \n");// FT_CreateDeviceInfoList failed
-//    }
 
-//    if (numDevs > 0)
-//    {
-//        // allocate storage for list based on numDevs
-//        devInfo = (FT_DEVICE_LIST_INFO_NODE*)malloc(sizeof(FT_DEVICE_LIST_INFO_NODE) * numDevs);
-//        // get the device information list
-//        ftStatus = FT_GetDeviceInfoList(devInfo, &numDevs);
-//        if (ftStatus == FT_OK)
-//        {
-//            for (DWORD i = 0; i < numDevs; i++)
-//            {
+    return true;
+}
+
+void MainWindow::availableDevs(rvDevInfo* rvDev, BYTE* rvDevNum)
+{
+    DWORD numDevs;
+    BYTE  rvNumDevs = 0;
+    FT_DEVICE_LIST_INFO_NODE* devInfo;
+    FT_STATUS ftStatus;
+
+    *rvDevNum = 0;
+
+    ftStatus = FT_CreateDeviceInfoList(&numDevs);
+    if (ftStatus == FT_OK)
+    {
+//        ui->console->LOGI("Number of devices is %d\n", numDevs);
+    }
+    else
+    {
+        ui->console->LOGI("FT_CreateDeviceInfoList failed \n");// FT_CreateDeviceInfoList failed
+    }
+
+    if (numDevs > 0)
+    {
+        // allocate storage for list based on numDevs
+        devInfo = (FT_DEVICE_LIST_INFO_NODE*)malloc(sizeof(FT_DEVICE_LIST_INFO_NODE) * numDevs);
+        // get the device information list
+        ftStatus = FT_GetDeviceInfoList(devInfo, &numDevs);
+        if (ftStatus == FT_OK)
+        {
+            for (DWORD i = 0; i < numDevs; i++)
+            {
 //                ui->console->LOGI("Dev %d:\n", i);
 //                ui->console->LOGI("Flags=0x%x\n", devInfo[i].Flags);
 //                ui->console->LOGI("Type=0x%x\n", devInfo[i].Type);
@@ -1402,10 +1440,78 @@ bool MainWindow::configInit()
 //                ui->console->LOGI("SerialNumber=%s\n", devInfo[i].SerialNumber);
 //                ui->console->LOGI("Description=%s\n", devInfo[i].Description);
 //                ui->console->LOGI("ftHandle=0x%x\n", devInfo[i].ftHandle);
-//            }
-//        }
-//    }
-    return true;
+                if (strncmp(devInfo[i].Description, "RVLINK", 6) == 0)
+                {
+                    rvDev[rvNumDevs].devIndex     = i;
+                    strcpy(rvDev[rvNumDevs].serialNumber, devInfo[i].SerialNumber);
+                    strcpy(rvDev[rvNumDevs].description , devInfo[i].Description);
+                    rvNumDevs                     ++;
+                }
+            }
+            *rvDevNum = rvNumDevs;
+        }
+    }
+}
+
+void MainWindow::fillPortInfo()
+{
+    BYTE i;
+    QString devIndex;
+    ui->comboBoxPort->setInsertPolicy(QComboBox::NoInsert);
+    for(i = 0; i < rvDevNum; i ++ )
+    {
+//        ui->console->LOGI("rvDevNum=%d\r\n",rvDevNum);
+        devIndex = devIndex.sprintf("%d",rvPortInfo[i].devIndex);
+        ui->comboBoxPort->addItem(QString(rvPortInfo[i].serialNumber).append("_dev").append(devIndex));
+    }
+    ui->comboBoxPort->addItem(tr("Custom"));
+}
+
+void MainWindow::on_comboBoxPort_activated(int index)
+{
+    BYTE currentIndex;
+    currentIndex = ui->comboBoxPort->currentIndex();
+    availableDevs(rvPortInfo, &rvDevNum);
+    ui->comboBoxPort->clear();
+    fillPortInfo();
+    QIcon qicon;
+//    ui->pushButtonActive->setIcon(qicon.fromTheme("media-record"));
+    ui->pushButtonActive->setIcon(QIcon(":/image/disconnect.png"));
+    ui->pushButtonActive->setIconSize(QSize(26, 26));
+    ui->comboBoxPort->setCurrentIndex(currentIndex);
+}
+
+void MainWindow::on_pushButtonActive_clicked()
+{
+    bool ok;
+    QString portInfoQstring;
+    QByteArray portInfoByteArray;
+    char* portInfoStr;
+    QString devStr;
+    int indexTh;
+
+    portInfoQstring   = ui->comboBoxPort->currentText();
+    portInfoByteArray = portInfoQstring.toLocal8Bit();
+    portInfoStr       = portInfoByteArray.data();
+
+    indexTh = portInfoQstring.length();
+    for(int i = 0; i < portInfoQstring.length(); i ++)
+    {
+        if(portInfoQstring[i] == '_')
+        {
+            indexTh = i;
+        }
+        if(i > indexTh && portInfoQstring[i] >= '0' && portInfoQstring[i] <= '9')
+        {
+            devStr.append(portInfoQstring[i]);
+        }
+    }
+    ft_dev_index  = devStr.toInt(&ok,10);
+    QIcon qicon;
+//    ui->pushButtonActive->setIcon(qicon.fromTheme("media-playback-start"));
+    ui->pushButtonActive->setIcon(QIcon(":/image/connect.png"));
+    ui->pushButtonActive->setIconSize(QSize(30, 30));
+    ui->console->LOGI("Config Port      @ %s, devIndex @ %d\r\n", portInfoStr, ft_dev_index);
 }
 
 void MainWindow::RvFlashInit()
@@ -1432,4 +1538,12 @@ void MainWindow::RvFlashInit()
     timerElapsedInit();
 
 //    mstimerInit();
+    ui->pushButtonActive->setToolTip("apply");
+    QIcon qicon;
+//    ui->pushButtonActive->setIcon(qicon.fromTheme("media-record"));
+    ui->pushButtonActive->setIcon(QIcon(":/image/disconnect.png"));
+    ui->pushButtonActive->setIconSize(QSize(26, 26));
+    availableDevs(rvPortInfo, &rvDevNum);
+    fillPortInfo();
 }
+

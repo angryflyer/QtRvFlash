@@ -23,6 +23,16 @@ public:
     MainWindow(QWidget *parent = nullptr);    
     ~MainWindow();
 
+// available RVLINK port information
+    BYTE rvDevNum;
+    struct rvDevInfo {
+        BYTE devIndex;
+        char serialNumber[16];
+        char description[64];
+    };
+// reserve space for 10 rvlink devices
+// rvDevInfo *rvPortInfo = (rvDevInfo*)malloc(sizeof(rvDevInfo) * 10);
+    rvDevInfo rvPortInfo[10];
 protected:
 
     void stimerInit();
@@ -48,8 +58,6 @@ protected:
     void RvFlashInit();
 
 private slots:
-
-    void on_pushButtonConnect_clicked();
 
     void on_pushButtonRead_clicked();
 
@@ -102,6 +110,14 @@ private slots:
     void timerElapsed();
 
     void consoleDebug(const QByteArray &data);
+
+    void availableDevs(rvDevInfo* rvDev, BYTE* rvDevNum);
+
+    void fillPortInfo();
+
+    void on_pushButtonActive_clicked();
+
+    void on_comboBoxPort_activated(int index);
 
 private:
     Ui::MainWindow *ui;
