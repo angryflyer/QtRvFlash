@@ -83,7 +83,7 @@ MainWindow::MainWindow(QWidget *parent)
 #ifdef _WIN32
     connect(m_usb_listener, &usb_listener::DevicePlugOut, [=](){
         //do something...
-        if(~ft_listdevices) {
+        if(~ft_list_device) {
             cmd_debug = false;
             ui->console->LOGI("Device Plug Out!\n>>");
         }
@@ -1328,6 +1328,7 @@ bool MainWindow::configInit()
        } else if (std::strncmp(&tempBuffer[i], "PROJ=", 5) == 0) {
          flashCtl.proj = std::atoi(&tempBuffer[i] + 5);
        } else if (std::strncmp(&tempBuffer[i], "PRODUCT=", 8) == 0) {
+         productBuffer = std::strtok(&tempBuffer[i] + 8, " \r\n");
          std::strncpy(ft_product, productBuffer, strlen(productBuffer));
          ui->console->LOGI("Config Product   @ %s\r\n",ft_product);
        }
