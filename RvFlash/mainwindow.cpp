@@ -285,7 +285,7 @@ void MainWindow::open()
     {
 //        QMessageBox::information(NULL,QStringLiteral("通知！"),QStringLiteral("仅显示前64KB数据！"),QStringLiteral("确定"));
 //        QMessageBox::information(NULL,QStringLiteral("Notice！"),QStringLiteral("Only display 64KB data！"),QStringLiteral("Confirm"));
-        ui->console->LOGI("Notice！Only display 64KB data！\n");
+        ui->console->LOGI(QString(QStringLiteral("Notice！Only display 64KB data！\n")).toStdString().data());
         display_size = mtpsize;
     } else
     {

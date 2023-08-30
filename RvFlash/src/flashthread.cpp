@@ -355,7 +355,7 @@ BOOL FlashThread::flashVerify()
     rvStatus = flashRead();
 
     if(TRUE == rvStatus) {
-        for (i = 0; i < flashCtl.fileSize; i++)
+        for (i = 0; i < dwLegth; i++)
         {
             if (flashCtl.readBufferAddr[i] == flashCtl.writeBufferAddr[i])
             {
@@ -365,7 +365,7 @@ BOOL FlashThread::flashVerify()
             else
             {
                 cmp_flag = FALSE;
-                fprintf(stderr, "Error Occured Verifing data from memory @ addr 0x%llx, rdata @ 0x%x, wdata @ 0x%x\n", flashCtl.address + i, flashCtl.readBufferAddr[i],flashCtl.writeBufferAddr[i]);
+                fprintf(stderr, "Error Occured Verifing data from memory @ addr 0x%llx, rdata @ 0x%x, wdata @ 0x%x\n", flashCtl.address + i * 8, flashCtl.readBufferAddr[i],flashCtl.writeBufferAddr[i]);
                 break;
             }
         }
