@@ -31,8 +31,24 @@ public:
         char description[64];
     };
 // reserve space for 10 rvlink devices
-// rvDevInfo *rvPortInfo = (rvDevInfo*)malloc(sizeof(rvDevInfo) * 10);
     rvDevInfo rvPortInfo[10];
+
+    enum devFreq {
+        Freq1000 = 1000,
+        Freq2000 = 2000,
+        Freq2500 = 2500,
+        Freq3000 = 3000,
+        Freq4000 = 4000,
+        Freq5000 = 5000,
+        Freq5500 = 5500,
+        Freq6000 = 6000,
+        Freq7000 = 7000,
+        Freq8000 = 8000,
+        UnknownFreq = -1
+    };
+    Q_ENUM(devFreq)
+    DWORD currentFreq;
+
 protected:
 
     void stimerInit();
@@ -56,6 +72,15 @@ protected:
     bool configInit();
 
     void RvFlashInit();
+
+    void RvFlashReadCfg();
+
+    void RvFlashCurtCfg();
+
+    void RvFlashCalcDelay();
+
+public slots:
+    bool eventFilter(QObject *, QEvent *);
 
 private slots:
 
@@ -115,7 +140,13 @@ private slots:
 
     void fillPortInfo();
 
+    void fillFreqInfo();
+
     void on_pushButtonActive_clicked();
+
+    void on_comboBoxFreq_activated(int index);
+
+    void on_comboBoxFreq_editTextChanged(const QString &);
 
     void on_comboBoxPort_activated(int index);
 

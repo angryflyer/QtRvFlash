@@ -2,6 +2,8 @@
 
 flashCtrl flashCtl;
 sysCtrl   sysCtl;
+rvConfigInfo rvCfgInfo;
+rvConfigInfo rvCurrentCfgInfo;
 
 void flashctl_reset(void)
 {

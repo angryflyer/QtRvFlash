@@ -42,6 +42,14 @@ enum flashtype
     setPc      = 0x38
 };
 
+enum projName
+{
+    PEP,  //pygmy-e production
+    P506, //project 506
+    P600, //project p600
+    P800  //project p800
+};
+
 struct flashCtrl
 {
     BOOL eraseFlag = false;
@@ -58,7 +66,7 @@ struct flashCtrl
     //char fileName[100] = ".\\test_case\\freertos_mtp_i2c0_32MHz.bin";
     char* fileName;
     BYTE connectStatus = false;
-    BYTE proj = 0;
+    BYTE proj = PEP;
     ULONGLONG fileSize = mtpsize;
     ULONGLONG currentfileSize = mtpsize;
     ULONGLONG *writeBufferAddr;
@@ -78,6 +86,22 @@ struct sysCtrl
 extern sysCtrl sysCtl;
 
 extern flashCtrl flashCtl;
+
+// save init config parameter
+struct rvConfigInfo {
+    char  product[64]="";
+    DWORD speed=2000;
+    DWORD wdelay=1;
+    DWORD rdelay=1;
+    DWORD wdelay1=1000;
+    DWORD rdelay1=1000;
+    DWORD wdelay2=3000;
+    DWORD rdelay2=3000;
+    BYTE  proj=PEP;
+};
+
+extern rvConfigInfo rvCfgInfo;
+extern rvConfigInfo rvCurrentCfgInfo;
 
 void flashctl_reset(void);
 

@@ -32,7 +32,8 @@
 
 //  extern parameters
     DWORD ft_freq        = 2000; //KHz
-    DWORD ft_wait_time   = 1;    //us
+    DWORD ft_wdelay      = 1;    //us
+    DWORD ft_rdelay      = 1;    //us
     DWORD ft_list_device = false;
     DWORD ft_dev_index   = 0;    //devIndex
     char  ft_product[64] = "RVLINK";
@@ -58,6 +59,8 @@
     #define waitMtpEraseByte           (AckWaitByte(waitMtpEraseTime,ft_freq) > waitByteTh ? AckWaitByte(waitMtpEraseTime,ft_freq) : waitByteTh)
     #define waitMtpProgByte            (AckWaitByte(waitMtpProgTime,ft_freq) > waitByteTh ? AckWaitByte(waitMtpProgTime,ft_freq) : waitByteTh)
     #define waitByte                   (AckWaitByte(waitTime,ft_freq) > waitByteTh ? AckWaitByte(waitTime,ft_freq) : waitByteTh)
+    #define burstWaitByte              (ft_freq > 5000) ? 3 : 2
+//    #define burstWaitByte              2
 //    #define rwcycle                    (DWORD) 10
 //    #define timeoutvalue               (DWORD) 100
     #define rwcycle                    (DWORD) 1000
@@ -275,8 +278,8 @@ BOOL ft_dev_init(DWORD speed)
     }
     else
     {      // Port opened successfully
-        printf("Successfully get  channel A description:%s\n",Buf);
-        printf("Successfully open channel A of FTD2XX device! \n");
+        fprintf (stderr, "Successfully get  channel A description:%s\n",Buf);
+        fprintf (stderr, "Successfully open channel A of FTD2XX device! \n");
 
         ftStatus |= FT_ResetDevice(ftHandle); 	//Reset USB device
         //printf("FT_ResetDevice!\n");
@@ -286,13 +289,13 @@ BOOL ft_dev_init(DWORD speed)
         if ((ftStatus == FT_OK) && (dwNumInputBuffer > 0))
                 FT_Read(ftHandle, &InputBuffer, dwNumInputBuffer, &dwNumBytesRead);  	//Read out the data from FTD2XX receive buffer
         //printf("FT_Read_after!=%d\n",dwNumInputBuffer);
-        ftStatus |= FT_SetUSBParameters(ftHandle, 65536, 65535);	//Set USB request transfer size
+        ftStatus |= FT_SetUSBParameters(ftHandle, 65536, 65536);	//Set USB request transfer size
         //printf("FT_SetUSBParameters!\n");
         ftStatus |= FT_SetChars(ftHandle, false, 0, false, 0);	 //Disable event and error characters
         //printf("FT_SetChars!\n");
-        ftStatus |= FT_SetTimeouts(ftHandle, 0, 5000);		//Sets the read and write timeouts in milliseconds for the FTD2XX
+        ftStatus |= FT_SetTimeouts(ftHandle, 1000, 1000);		//Sets the read and write timeouts in milliseconds for the FTD2XX
                 //printf("FT_SetTimeouts!\n");
-        ftStatus |= FT_SetLatencyTimer(ftHandle, 16);		//Set the latency timer
+        ftStatus |= FT_SetLatencyTimer(ftHandle, 30);		//Set the latency timer
         //printf("FT_SetLatencyTimer!\n");
 //		ftStatus |= FT_SetBitMode(ftHandle, 0x0, 0x00); 		//Reset controller
         //printf("FT_SetBitMode_Reset!\n");
@@ -308,9 +311,9 @@ BOOL ft_dev_init(DWORD speed)
 
 //                printf("dwTestioStart Synchronize the MPSSE!\n");
         //////////////////////////////////////////////////////////////////
-        // Synchronize the MPSSE interface by sending bad command ��0xAA��
+        // Synchronize the MPSSE interface by sending bad command 0xAA
         //////////////////////////////////////////////////////////////////
-        OutputBuffer[dwNumBytesToSend++] = '\xAA';		//Add BAD command ��0xAA��
+        OutputBuffer[dwNumBytesToSend++] = '\xAA';		//Add BAD command 0xAA
         ftStatus = FT_Write(ftHandle, OutputBuffer, dwNumBytesToSend, &dwNumBytesSent);	// Send off the BAD commands
         dwNumBytesToSend = 0;			//Clear output buffer
         do{
@@ -341,14 +344,14 @@ BOOL ft_dev_init(DWORD speed)
         {
             printf("fail to synchronize MPSSE with command '0xAA' \n");
             getchar();
-            return false; /*Error, can��t receive echo command , fail to synchronize MPSSE interface;*/
+            return false; /*Error, cant receive echo command , fail to synchronize MPSSE interface;*/
         }
 
         //////////////////////////////////////////////////////////////////
-        // Synchronize the MPSSE interface by sending bad command ��0xAB��
+        // Synchronize the MPSSE interface by sending bad command 0xAB
         //////////////////////////////////////////////////////////////////
         //dwNumBytesToSend = 0;			//Clear output buffer
-        OutputBuffer[dwNumBytesToSend++] = '\xAB';	//Send BAD command ��0xAB��
+        OutputBuffer[dwNumBytesToSend++] = '\xAB';	//Send BAD command 0xAB
         ftStatus = FT_Write(ftHandle, OutputBuffer, dwNumBytesToSend, &dwNumBytesSent);	// Send off the BAD commands
         dwNumBytesToSend = 0;			//Clear output buffer
         do{
@@ -369,7 +372,7 @@ BOOL ft_dev_init(DWORD speed)
             printf("fail to synchronize MPSSE with command '0xAB' \n");
             getchar();
             return false;
-            /*Error, can��t receive echo command , fail to synchronize MPSSE interface;*/
+            /*Error, cant receive echo command , fail to synchronize MPSSE interface;*/
         }
 
 //		printf("MPSSE synchronized with BAD command \n");
@@ -383,14 +386,14 @@ BOOL ft_dev_init(DWORD speed)
         ftStatus = FT_Write(ftHandle, OutputBuffer, dwNumBytesToSend, &dwNumBytesSent);	// Send off the commands
         dwNumBytesToSend = 0;			//Clear output buffer
         OutputBuffer[dwNumBytesToSend++] = '\x80'; 	//Command to set directions of lower 8 pins and force value on bits set as output
-        OutputBuffer[dwNumBytesToSend++] = '\x73'; 	//Set data, clk high, WP disabled by SK, DO at bit ��1��, GPIOL0 at bit ��0��
-        OutputBuffer[dwNumBytesToSend++] = '\xf3';	//Set SK,DO,GPIOL0 pins as output with bit ��1��, other pins as input with bit ��0��
+        OutputBuffer[dwNumBytesToSend++] = '\x73'; 	//Set data, clk high, WP disabled by SK, DO at bit 1, GPIOL0 at bit 0
+        OutputBuffer[dwNumBytesToSend++] = '\xf3';	//Set SK,DO,GPIOL0 pins as output with bit 1, other pins as input with bit 0
         // The SK clock frequency can be worked out by below algorithm with divide by 5 set as off
         // SK frequency  = 60MHz /((1 +  [(1 +0xValueH*256) OR 0xValueL])*2)
         OutputBuffer[dwNumBytesToSend++] = '\x86'; 			//Command to set clock divisor
         OutputBuffer[dwNumBytesToSend++] = dwClockDivisor & '\xFF';	//Set 0xValueL of clock divisor
         OutputBuffer[dwNumBytesToSend++] = (dwClockDivisor >> 8) & '\xFF';	//Set 0xValueH of clock divisor
-        printf ("Successfully set  connect speed:%0dKHz\n", speed);//printf speed config information
+        fprintf (stderr, "Successfully set  connect speed:%0dKHz\n", speed);//printf speed config information
 
         ftStatus = FT_Write(ftHandle, OutputBuffer, dwNumBytesToSend, &dwNumBytesSent);	// Send off the commands
         dwNumBytesToSend = 0;			//Clear output buffer
@@ -456,16 +459,16 @@ BOOL WriteDataAndCheckACK(ULONGLONG dwAddr,ULONGLONG dwData,BYTE dwAddrBitW,BYTE
     {
         OutputBuffer[dwNumBytesToSend++] = '\x80'; 	//Command to set directions of lower 8 pins and force value on bits set as output
         OutputBuffer[dwNumBytesToSend++] = '\x72'; 	//Set dataout high, clk low, set GPIOL0-2 to 1(high)
-        OutputBuffer[dwNumBytesToSend++] = '\xf3';	//Set SK,DO,GPIOL0 pins as output with bit ��1��, other pins as input with bit ��0��
+        OutputBuffer[dwNumBytesToSend++] = '\xf3';	//Set SK,DO,GPIOL0 pins as output with bit 1, other pins as input with bit 0
     }
 
-    OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_OUT; 	//clock data byte out on �Cve Clock Edge MSB first
+    OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_OUT; 	//clock data byte out on Clock Edge MSB first
     OutputBuffer[dwNumBytesToSend++] = '\x00';  //0+1=1 bytes to clk out
     OutputBuffer[dwNumBytesToSend++] = '\x00';	//Data length of 0x0000 means 1 byte data to clock out
 
     OutputBuffer[dwNumBytesToSend++] = dwDataSend[0];
 
-    OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_OUT; //clock data byte out on �Cve Clock Edge MSB first
+    OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_OUT; //clock data byte out on Clock Edge MSB first
     OutputBuffer[dwNumBytesToSend++] = dwAddrW - 1;                     //x+1 bytes to clk out
     OutputBuffer[dwNumBytesToSend++] = '\x00';	                        //Data length of 0x0000 means 1 byte data to clock out
 
@@ -476,13 +479,13 @@ BOOL WriteDataAndCheckACK(ULONGLONG dwAddr,ULONGLONG dwData,BYTE dwAddrBitW,BYTE
     }
 
     //output mask/strb
-    OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BIT_OUT; 	//clock data bit out on �Cve Clock Edge MSB first, transfer Parity and dwTestioStop
+    OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BIT_OUT; 	//clock data bit out on Clock Edge MSB first, transfer Parity and dwTestioStop
     OutputBuffer[dwNumBytesToSend++] = dwDataW - 1;                     //dwDataW bits
     OutputBuffer[dwNumBytesToSend++] = dwDataSend[dwCount];	            //Data length of 0x0000 means 1 byte data to clock out
     dwCount++;                                                          //++ needed here
 
     //output data
-    OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_OUT; //clock data byte out on �Cve Clock Edge MSB first
+    OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_OUT; //clock data byte out on Clock Edge MSB first
     OutputBuffer[dwNumBytesToSend++] = dwDataW - 1;                     //x+1 bytes to clk out
     OutputBuffer[dwNumBytesToSend++] = '\x00';	                        //Data length of 0x0000 means 1 byte data to clock out
 
@@ -492,17 +495,17 @@ BOOL WriteDataAndCheckACK(ULONGLONG dwAddr,ULONGLONG dwData,BYTE dwAddrBitW,BYTE
     }
 
     //output Parity and dwTestioStop
-    OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BIT_OUT; 	//clock data bit out on �Cve Clock Edge MSB first, transfer Parity and dwTestioStop
+    OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BIT_OUT; 	//clock data bit out on Clock Edge MSB first, transfer Parity and dwTestioStop
     OutputBuffer[dwNumBytesToSend++] = '\x01';  //2 bits
     OutputBuffer[dwNumBytesToSend++] = dwDataSend[dwCount];	//Data length of 0x0000 means 1 byte data to clock out
 
     //Set dataout input?
     OutputBuffer[dwNumBytesToSend++] = '\x80'; 	//Command to set directions of lower 8 pins and force value on bits set as output
     OutputBuffer[dwNumBytesToSend++] = '\x72'; 	//Set data high,clk low, set GPIOL0-2 to 1(high)
-    OutputBuffer[dwNumBytesToSend++] = '\xf1';	//Set CLK,GPIOL0-3 pins as output with bit ��1��, data and other pins as input with bit ��0��
+    OutputBuffer[dwNumBytesToSend++] = '\xf1';	//Set CLK,GPIOL0-3 pins as output with bit 1, data and other pins as input with bit 0
 
     //Get Ack data from chip,clock out with byte in
-    OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_IN; 	//clock data bit out on �Cve Clock Edge MSB first, transfer Parity and dwTestioStop
+    OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_IN; 	//clock data bit out on Clock Edge MSB first, transfer Parity and dwTestioStop
     if((dwAddr >= STATION_SDIO_MTP_TIME_CONFIG_ADDR__DEPTH_0) && (dwAddr <= (STATION_SDIO_MTP_IDLE_ADDR + 8)))
     {
         OutputBuffer[dwNumBytesToSend++] = waitMtpEraseByte & 0xff;  //n bytes to clock out
@@ -530,18 +533,19 @@ BOOL WriteDataAndCheckACK(ULONGLONG dwAddr,ULONGLONG dwData,BYTE dwAddrBitW,BYTE
     //Set bus to idle, set clk and data high
     OutputBuffer[dwNumBytesToSend++] = '\x80'; 	//Command to set directions of lower 8 pins and force value on bits set as output
     OutputBuffer[dwNumBytesToSend++] = '\x73'; 	//Set data,clk high, set GPIOL0-3 to 1(high)
-    OutputBuffer[dwNumBytesToSend++] = '\xf3';	//Set SK,DO,GPIOL0 pins as output with bit ��1��, other pins as input with bit ��0��
+    OutputBuffer[dwNumBytesToSend++] = '\xf3';	//Set SK,DO,GPIOL0 pins as output with bit 1, other pins as input with bit 0
 
     ftStatus = FT_Write(ftHandle, OutputBuffer, dwNumBytesToSend, &dwNumBytesSent);		//Send off the commands
 
     dwNumBytesToSend = 0;			//Clear output buffer
+    usleep(ft_wdelay);              //for real os only; visual machine: remove it
 //  if((dwAddr >= STATION_SDIO_MTP_TIME_CONFIG_ADDR__DEPTH_0) && (dwAddr <= (STATION_SDIO_MTP_IDLE_ADDR + 8)))
 // 	{
 // 		usleep(300 * 1000); //calc 13bytes * 8bit /  1 =  104ms, then 200*1000us >> 104ms for stable data.
 // 	}
 // 	else if((dwAddr >= STATION_SDIO_BASE_ADDR) && (dwAddr < (STATION_SDIO_BASE_ADDR + 8*8*1024)))
 // 	{
-// 		usleep(waitDataStableTime * ft_wait_time * 1000);
+// 		usleep(waitDataStableTime * ft_wdelay * 1000);
 // 	}
 // 	else
 // 	{
@@ -620,10 +624,11 @@ BOOL WriteDataBurst(ULONGLONG dwAddr, ULONGLONG *dwData, BYTE dwAddrBitW, BYTE d
     DWORD *dwDataBurst;
     DWORD dwCount;
     DWORD dwBurstCount;
+    DWORD dwWaitByteTh;
     BYTE dwGetAck = 0xff;
     rcvdat rcvdata = {0xff, 0xff, 0xff};
     // max transfer 1024 * 4 = 4KByte
-    BYTE dwDataSend[8192][18] = {{0}};
+    BYTE dwDataSend[8192][20] = {{0}};
     BYTE Parity = 1;
     BYTE Array = 0;
     BYTE dwAddrW = dwAddrBitW / 8;
@@ -661,8 +666,14 @@ BOOL WriteDataBurst(ULONGLONG dwAddr, ULONGLONG *dwData, BYTE dwAddrBitW, BYTE d
 
         dwCount ++;
         // fix delay with clk cycle for next transfer
-        dwDataSend[dwBurstCount][dwCount ++] = 0xff;
-        dwDataSend[dwBurstCount][dwCount   ] = 0xff;
+        dwWaitByteTh = dwCount + burstWaitByte;
+        for(; dwCount < dwWaitByteTh; dwCount ++)
+        {
+            dwDataSend[dwBurstCount][dwCount] = 0xff;
+        }
+//        dwDataSend[dwBurstCount][dwCount ++] = 0xff;
+//        dwDataSend[dwBurstCount][dwCount ++] = 0xff;
+//        dwDataSend[dwBurstCount][dwCount   ] = 0xff;
         dwAddr = dwAddr + dwDataW;
     //	printf("dwDataSend[dwBurstCount][15]=0x%x\n",dwDataSend[15]);
 
@@ -682,16 +693,16 @@ BOOL WriteDataBurst(ULONGLONG dwAddr, ULONGLONG *dwData, BYTE dwAddrBitW, BYTE d
         {
             OutputBuffer[dwNumBytesToSend++] = '\x80'; 	//Command to set directions of lower 8 pins and force value on bits set as output
             OutputBuffer[dwNumBytesToSend++] = '\x72'; 	//Set dataout high, clk low, set GPIOL0-2 to 1(high)
-            OutputBuffer[dwNumBytesToSend++] = '\xf3';	//Set SK,DO,GPIOL0 pins as output with bit ��1��, other pins as input with bit ��0��
+            OutputBuffer[dwNumBytesToSend++] = '\xf3';	//Set SK,DO,GPIOL0 pins as output with bit 1, other pins as input with bit 0
         }
 
-        OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_OUT; 	//clock data byte out on �Cve Clock Edge MSB first
+        OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_OUT; 	//clock data byte out on Clock Edge MSB first
         OutputBuffer[dwNumBytesToSend++] = '\x00';  //0+1=1 bytes to clk out
         OutputBuffer[dwNumBytesToSend++] = '\x00';	//Data length of 0x0000 means 1 byte data to clock out
 
         OutputBuffer[dwNumBytesToSend++] = dwDataSend[dwBurstCount][0];
 
-        OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_OUT; //clock data byte out on �Cve Clock Edge MSB first
+        OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_OUT; //clock data byte out on Clock Edge MSB first
         OutputBuffer[dwNumBytesToSend++] = dwAddrW - 1;                     //x+1 bytes to clk out
         OutputBuffer[dwNumBytesToSend++] = '\x00';	                        //Data length of 0x0000 means 1 byte data to clock out
 
@@ -702,13 +713,13 @@ BOOL WriteDataBurst(ULONGLONG dwAddr, ULONGLONG *dwData, BYTE dwAddrBitW, BYTE d
         }
 
         //output mask/strb
-        OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BIT_OUT; 	//clock data bit out on �Cve Clock Edge MSB first, transfer Parity and dwTestioStop
+        OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BIT_OUT; 	//clock data bit out on Clock Edge MSB first, transfer Parity and dwTestioStop
         OutputBuffer[dwNumBytesToSend++] = dwDataW - 1;                     //dwDataW bits
         OutputBuffer[dwNumBytesToSend++] = dwDataSend[dwBurstCount][dwCount];	            //Data length of 0x0000 means 1 byte data to clock out
         dwCount++;                                                          //++ needed here
 
         //output data
-        OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_OUT; //clock data byte out on �Cve Clock Edge MSB first
+        OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_OUT; //clock data byte out on Clock Edge MSB first
         OutputBuffer[dwNumBytesToSend++] = dwDataW - 1;                     //x+1 bytes to clk out
         OutputBuffer[dwNumBytesToSend++] = '\x00';	                        //Data length of 0x0000 means 1 byte data to clock out
 
@@ -718,7 +729,7 @@ BOOL WriteDataBurst(ULONGLONG dwAddr, ULONGLONG *dwData, BYTE dwAddrBitW, BYTE d
         }
 
         //output Parity and dwTestioStop
-        OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BIT_OUT; 	//clock data bit out on �Cve Clock Edge MSB first, transfer Parity and dwTestioStop
+        OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BIT_OUT; 	//clock data bit out on Clock Edge MSB first, transfer Parity and dwTestioStop
         OutputBuffer[dwNumBytesToSend++] = '\x01';  //2 bits
         OutputBuffer[dwNumBytesToSend++] = dwDataSend[dwBurstCount][dwCount];	//Data length of 0x0000 means 1 byte data to clock out
 
@@ -726,13 +737,19 @@ BOOL WriteDataBurst(ULONGLONG dwAddr, ULONGLONG *dwData, BYTE dwAddrBitW, BYTE d
         // Set dataout input for waiting ack, but not update to pc
         OutputBuffer[dwNumBytesToSend++] = '\x80'; 	//Command to set directions of lower 8 pins and force value on bits set as output
         OutputBuffer[dwNumBytesToSend++] = '\x72'; 	//Set data high,clk low, set GPIOL0-2 to 1(high)
-        OutputBuffer[dwNumBytesToSend++] = '\xf1';	//Set CLK,GPIOL0-3 pins as output with bit ��1��, data and other pins as input with bit ��0��
+        OutputBuffer[dwNumBytesToSend++] = '\xf1';	//Set CLK,GPIOL0-3 pins as output with bit 1, data and other pins as input with bit 0
         // output nop data 0xff
-        OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_IN; //clock data byte out on �Cve Clock Edge MSB first
-        OutputBuffer[dwNumBytesToSend++] = '\x01';                          //x+1 bytes to clk out
-        OutputBuffer[dwNumBytesToSend++] = '\x00';	                        //Data length of 0x0000 means 1 byte data to clock out
-        OutputBuffer[dwNumBytesToSend++] = dwDataSend[dwBurstCount][dwCount++];
-        OutputBuffer[dwNumBytesToSend++] = dwDataSend[dwBurstCount][dwCount];
+        OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_IN; //clock data byte out on Clock Edge MSB first
+        OutputBuffer[dwNumBytesToSend++] = (BYTE)(burstWaitByte-1);          //x+1 bytes to clk out
+        OutputBuffer[dwNumBytesToSend++] = '\x00';	                       //Data length of 0x0000 means 1 byte data to clock out
+        dwWaitByteTh = dwCount + burstWaitByte;
+        for(; dwCount < dwWaitByteTh; dwCount ++)
+        {
+            dwDataSend[dwBurstCount][dwCount] = 0xff;
+        }
+//        OutputBuffer[dwNumBytesToSend++] = dwDataSend[dwBurstCount][dwCount++];
+//        OutputBuffer[dwNumBytesToSend++] = dwDataSend[dwBurstCount][dwCount++];
+//        OutputBuffer[dwNumBytesToSend++] = dwDataSend[dwBurstCount][dwCount];
     } // end config send data
 //    fprintf(stderr, "dwBurstCount = %lu, dwNumBytesToSend = %lu\n", dwBurstCount, dwNumBytesToSend);
 //    fprintf(stderr, "dwNumBytesToSend count of send data=%lu\n", dwNumBytesToSend);
@@ -740,10 +757,10 @@ BOOL WriteDataBurst(ULONGLONG dwAddr, ULONGLONG *dwData, BYTE dwAddrBitW, BYTE d
 //    //Set dataout input, finish write and start receive last ack
 //    OutputBuffer[dwNumBytesToSend++] = '\x80'; 	//Command to set directions of lower 8 pins and force value on bits set as output
 //    OutputBuffer[dwNumBytesToSend++] = '\x72'; 	//Set data high,clk low, set GPIOL0-2 to 1(high)
-//    OutputBuffer[dwNumBytesToSend++] = '\xf1';	//Set CLK,GPIOL0-3 pins as output with bit ��1��, data and other pins as input with bit ��0��
+//    OutputBuffer[dwNumBytesToSend++] = '\xf1';	//Set CLK,GPIOL0-3 pins as output with bit 1, data and other pins as input with bit 0
 
 //    //Get Ack data from chip,clock out with byte in
-//    OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_IN; 	//clock data bit out on �Cve Clock Edge MSB first, transfer Parity and dwTestioStop
+//    OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_IN; 	//clock data bit out on Clock Edge MSB first, transfer Parity and dwTestioStop
 //    if((dwAddr >= STATION_SDIO_MTP_TIME_CONFIG_ADDR__DEPTH_0) && (dwAddr <= (STATION_SDIO_MTP_IDLE_ADDR + 8)))
 //    {
 //        OutputBuffer[dwNumBytesToSend++] = waitMtpEraseByte & 0xff;  //n bytes to clock out
@@ -771,20 +788,21 @@ BOOL WriteDataBurst(ULONGLONG dwAddr, ULONGLONG *dwData, BYTE dwAddrBitW, BYTE d
     //Set bus to idle, set clk and data high
     OutputBuffer[dwNumBytesToSend++] = '\x80'; 	//Command to set directions of lower 8 pins and force value on bits set as output
     OutputBuffer[dwNumBytesToSend++] = '\x73'; 	//Set data,clk high, set GPIOL0-3 to 1(high)
-    OutputBuffer[dwNumBytesToSend++] = '\xf3';	//Set SK,DO,GPIOL0 pins as output with bit ��1��, other pins as input with bit ��0��
+    OutputBuffer[dwNumBytesToSend++] = '\xf3';	//Set SK,DO,GPIOL0 pins as output with bit 1, other pins as input with bit 0
 
 //    fprintf(stderr, "dwNumBytesToSend count of finish send=%lu\n", dwNumBytesToSend);
 
     ftStatus = FT_Write(ftHandle, OutputBuffer, dwNumBytesToSend, &dwNumBytesSent);		//Send off the commands
 
     dwNumBytesToSend = 0;			//Clear output buffer
+    usleep(ft_wdelay);            //for real os only; visual machine: remove it
 //  if((dwAddr >= STATION_SDIO_MTP_TIME_CONFIG_ADDR__DEPTH_0) && (dwAddr <= (STATION_SDIO_MTP_IDLE_ADDR + 8)))
 // 	{
 // 		usleep(300 * 1000); //calc 13bytes * 8bit /  1 =  104ms, then 200*1000us >> 104ms for stable data.
 // 	}
 // 	else if((dwAddr >= STATION_SDIO_BASE_ADDR) && (dwAddr < (STATION_SDIO_BASE_ADDR + 8*8*1024)))
 // 	{
-// 		usleep(waitDataStableTime * ft_wait_time * 1000);
+// 		usleep(waitDataStableTime * ft_wdelay * 1000);
 // 	}
 // 	else
 // 	{
@@ -902,16 +920,16 @@ BOOL ReadDataAndCheckACK(ULONGLONG dwAddr, ULONGLONG *dwGetData, BYTE dwAddrBitW
     {
         OutputBuffer[dwNumBytesToSend++] = '\x80'; 	//Command to set directions of lower 8 pins and force value on bits set as output
         OutputBuffer[dwNumBytesToSend++] = '\x72'; 	//Set dataout high, clk low, set GPIOL0-2 to 1(high)
-        OutputBuffer[dwNumBytesToSend++] = '\xf3';	//Set SK,DO,GPIOL0 pins as output with bit ��1��, other pins as input with bit ��0��
+        OutputBuffer[dwNumBytesToSend++] = '\xf3';	//Set SK,DO,GPIOL0 pins as output with bit 1, other pins as input with bit 0
     }
 
-    OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_OUT; 	//clock data byte out on �Cve Clock Edge MSB first
+    OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_OUT; 	//clock data byte out on Clock Edge MSB first
     OutputBuffer[dwNumBytesToSend++] = '\x00';  //0+1=1 bytes to clk out
     OutputBuffer[dwNumBytesToSend++] = '\x00';	//Data length of 0x0000 means 1 byte data to clock out
 
     OutputBuffer[dwNumBytesToSend++] = dwDataSend[0];
 
-    OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_OUT; 	//clock data byte out on �Cve Clock Edge MSB first
+    OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_OUT; 	//clock data byte out on Clock Edge MSB first
     OutputBuffer[dwNumBytesToSend++] = dwAddrW - 1;  //x+1 bytes to clk out
     OutputBuffer[dwNumBytesToSend++] = '\x00';	     //Data length of 0x0000 means 1 byte data to clock out
 
@@ -922,16 +940,16 @@ BOOL ReadDataAndCheckACK(ULONGLONG dwAddr, ULONGLONG *dwGetData, BYTE dwAddrBitW
     }
 
     //output Parity and dwTestioStop
-    OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BIT_OUT; 	//clock data bit out on �Cve Clock Edge MSB first, transfer Parity and dwTestioStop [6]
+    OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BIT_OUT; 	//clock data bit out on Clock Edge MSB first, transfer Parity and dwTestioStop [6]
     OutputBuffer[dwNumBytesToSend++] = '\x01';  //1+1 = 2 bits
     OutputBuffer[dwNumBytesToSend++] = dwDataSend[dwCount];	//Data length of 0x0000 means 1 byte data to clock out
     //Set dataout input?
     OutputBuffer[dwNumBytesToSend++] = '\x80'; 	//Command to set directions of lower 8 pins and force value on bits set as output
     OutputBuffer[dwNumBytesToSend++] = '\x72'; 	//Set data,clk high, set GPIOL0-2 to 1(high)
-    OutputBuffer[dwNumBytesToSend++] = '\xf1';	//Set CLK,GPIOL0-3 pins as output with bit ��1��, data and other pins as input with bit ��0��
+    OutputBuffer[dwNumBytesToSend++] = '\xf1';	//Set CLK,GPIOL0-3 pins as output with bit 1, data and other pins as input with bit 0
 
     //Get Ack data from chip,clock out with byte in
-    OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_IN; 	//clock data bit out on �Cve Clock Edge MSB first, transfer Parity and dwTestioStop
+    OutputBuffer[dwNumBytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_IN; 	//clock data bit out on Clock Edge MSB first, transfer Parity and dwTestioStop
      if((dwAddr >= STATION_SDIO_MTP_ADDR) && (dwAddr <= (STATION_SDIO_MTP_IDLE_ADDR + 8)))
      {
         OutputBuffer[dwNumBytesToSend++] = waitMtpProgByte & 0xff;  //num+1 bytes to clock out
@@ -950,12 +968,12 @@ BOOL ReadDataAndCheckACK(ULONGLONG dwAddr, ULONGLONG *dwGetData, BYTE dwAddrBitW
     //Set bus to idle, set clk and data high
     OutputBuffer[dwNumBytesToSend++] = '\x80'; 	//Command to set directions of lower 8 pins and force value on bits set as output
     OutputBuffer[dwNumBytesToSend++] = '\x73'; 	//Set data,clk high, set GPIOL0-2 to 1(high)
-    OutputBuffer[dwNumBytesToSend++] = '\xf3';	//Set SK,DO,GPIOL0-3 pins as output with bit ��1��, other pins as input with bit ��0��
+    OutputBuffer[dwNumBytesToSend++] = '\xf3';	//Set SK,DO,GPIOL0-3 pins as output with bit 1, other pins as input with bit 0
 
     ftStatus = FT_Write(ftHandle, OutputBuffer, dwNumBytesToSend, &dwNumBytesSent);		//Send off the commands
 
-//    usleep(waitDataStableTime * ft_wait_time * 1000);  //calc 13bytes * 8bit / 50 = 2.08ms, then 20 *1000us >> 2.08ms for stable data.
-    usleep(ft_wait_time);            //for real os only; visual machine: remove it
+//    usleep(waitDataStableTime * ft_rdelay * 1000);  //calc 13bytes * 8bit / 50 = 2.08ms, then 20 *1000us >> 2.08ms for stable data.
+    usleep(ft_rdelay);              //for real os only; visual machine: remove it
     dwNumBytesToSend = 0;			//Clear output buffer
     //Check if ACK bit received, may need to read more times to get ACK bit or fail if timeout
 
@@ -1101,7 +1119,7 @@ void set_reset(void)
 
     OutputBuffer[dwNumBytesToSend++] = '\x80'; 	//Command to set directions of lower 8 pins and force value on bits set as output
     OutputBuffer[dwNumBytesToSend++] = '\x03'; 	//Set gpio low
-    OutputBuffer[dwNumBytesToSend++] = '\xf3';	//Set SK,DO,GPIOL0 pins as output with bit ��1��, other pins as input with bit ��0��
+    OutputBuffer[dwNumBytesToSend++] = '\xf3';	//Set SK,DO,GPIOL0 pins as output with bit 1, other pins as input with bit 0
 
 
 
@@ -1116,7 +1134,7 @@ void release_reset(void)
 
     OutputBuffer[dwNumBytesToSend++] = '\x80'; 	//Command to set directions of lower 8 pins and force value on bits set as output
     OutputBuffer[dwNumBytesToSend++] = '\x73'; 	//Set GPIO high
-    OutputBuffer[dwNumBytesToSend++] = '\xf3';	//Set SK,DO,GPIOL0 pins as output with bit ��1��, other pins as input with bit ��0��
+    OutputBuffer[dwNumBytesToSend++] = '\xf3';	//Set SK,DO,GPIOL0 pins as output with bit 1, other pins as input with bit 0
 
     ftStatus = FT_Write(ftHandle, OutputBuffer, dwNumBytesToSend, &dwNumBytesSent);
     dwNumBytesToSend = 0;
@@ -1168,7 +1186,7 @@ void set_gpiol3(BYTE gpiol3)
 
     OutputBuffer[dwNumBytesToSend++] = '\x80'; 	//Command to set directions of lower 8 pins and force value on bits set as output
     OutputBuffer[dwNumBytesToSend++] = '\xf3' & ((gpiol3 << 7) | 0x7f); 	//Set gpio high
-    OutputBuffer[dwNumBytesToSend++] = '\xf3';	//Set SK,DO,GPIOL0 pins as output with bit ��1��, other pins as input with bit ��0��
+    OutputBuffer[dwNumBytesToSend++] = '\xf3';	//Set SK,DO,GPIOL0 pins as output with bit 1, other pins as input with bit 0
 
     ftStatus = FT_Write(ftHandle, OutputBuffer, dwNumBytesToSend, &dwNumBytesSent);
     printf("set gpiol3=%d\n",gpiol3);

@@ -11,7 +11,7 @@ FlashThread::FlashThread(MainWindow* creator, QObject* parent) : QThread(parent)
 void FlashThread::run()
 {
     emit progress(0, 0, "", (flashtimer | threadstart));
-    if(flashCtl.proj == 1)
+    if(flashCtl.proj != PEP)
     {
         ft_open();
         sysHoldReset();
@@ -50,7 +50,7 @@ void FlashThread::run()
     //recover filesize value
     flashCtl.fileSize = flashCtl.currentfileSize;
 
-    if(flashCtl.proj == 1)
+    if(flashCtl.proj != PEP)
     {
         ft_open();
         sysSetPc();
@@ -365,7 +365,7 @@ BOOL FlashThread::flashVerify()
             else
             {
                 cmp_flag = FALSE;
-                //fprintf(stderr, "Error Occured Verifing data from memory @ addr 0x%llx, rdata @ 0x%x, wdata @ 0x%x\n", flashCtl.address + i, flashCtl.mtpReadBuffer[i],flashCtl.mtpWriteBuffer[i]);
+                fprintf(stderr, "Error Occured Verifing data from memory @ addr 0x%llx, rdata @ 0x%x, wdata @ 0x%x\n", flashCtl.address + i, flashCtl.readBufferAddr[i],flashCtl.writeBufferAddr[i]);
                 break;
             }
         }
@@ -384,6 +384,7 @@ BOOL FlashThread::flashVerify()
 void FlashThread::flashAuto()
 {
     BOOL rvStatus = FALSE;
+    ULONGLONG dwLegth = filesize64;
     if(flashCtl.autoEraseFlag)
     {
         flashErase();
@@ -392,7 +393,7 @@ void FlashThread::flashAuto()
     if(flashCtl.autoWriteFlag)
     {
         // if datasize <= 64KB, single write
-        if(filesize64 <= 8192)
+        if(dwLegth <= 8192 || flashCtl.proj == PEP)
         {
             rvStatus = flashWrite();
         } else
@@ -404,6 +405,12 @@ void FlashThread::flashAuto()
     }
     if(flashCtl.autoVerifyFlag)
     {
+        ft_freq   = (rvCfgInfo.speed < 2000) ? rvCfgInfo.speed : 2000;
+        ft_wdelay = rvCfgInfo.wdelay;
+        ft_rdelay = rvCfgInfo.rdelay;
+        ft_close();
+        ft_dev_init(ft_freq);
+        ft_close();
         rvStatus = flashVerify();
         if(FALSE == rvStatus) return;
     }

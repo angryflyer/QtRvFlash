@@ -10,7 +10,8 @@
 
 extern DWORD ft_freq;        //default freq KHz, same with rvlink speed for calculating usb waitime
 extern DWORD ft_list_device; //default list device num and type
-extern DWORD ft_wait_time;   //adjust wait time of usb bus for get stable data
+extern DWORD ft_wdelay;      //adjust wait time of usb bus for get stable data
+extern DWORD ft_rdelay;      //adjust wait time of usb bus for get stable data
 extern DWORD ft_dev_index;
 extern char  ft_product[64];
 

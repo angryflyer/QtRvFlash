@@ -59,6 +59,8 @@ MainWindow::MainWindow(QWidget *parent)
     qApp->installNativeEventFilter(m_usb_listener);
 #endif
 
+    ui->comboBoxPort->installEventFilter(this);
+
     qRegisterMetaType<uint64_t>("uint64_t");
 
     //initial default flash address
@@ -91,7 +93,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     });
 #endif
-    QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8")); //设置编码
+    QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8")); //set codec
 
     RvFlashInit();
 }
@@ -113,6 +115,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::on_pushButtonRun_clicked()
 {
+    RvFlashCurtCfg();
     flashCtl.runFlag = true;
     if(false == checkStatus() || false == checkConnect() || false == checkCurrentFile())
     {
@@ -139,6 +142,7 @@ void MainWindow::on_pushButtonRun_clicked()
 
 void MainWindow::on_pushButtonRead_clicked()
 {
+    RvFlashReadCfg();
     flashCtl.readFlag = true;
     if(false == checkStatus())
     {
@@ -170,6 +174,7 @@ void MainWindow::on_pushButtonRead_clicked()
 
 void MainWindow::on_pushButtonErase_clicked()
 {
+    RvFlashCurtCfg();
     flashCtl.eraseFlag = true;
     if(false == checkStatus() || false == checkConnect() || false == checkCurrentFile())
     {
@@ -184,6 +189,7 @@ void MainWindow::on_pushButtonErase_clicked()
 
 void MainWindow::on_pushButtonProgram_clicked()
 {
+    RvFlashCurtCfg();
     flashCtl.writeFlag = true;
     if(false == checkStatus() || false == checkConnect() || false == checkCurrentFile())
     {
@@ -198,6 +204,7 @@ void MainWindow::on_pushButtonProgram_clicked()
 
 void MainWindow::on_pushButtonVerify_clicked()
 {
+    RvFlashReadCfg();
     flashCtl.verifyFlag = true;
     if(false == checkStatus() || false == checkConnect() || false == checkCurrentFile())
     {
@@ -212,6 +219,7 @@ void MainWindow::on_pushButtonVerify_clicked()
 
 void MainWindow::on_pushButtonAuto_clicked()
 {
+    RvFlashCurtCfg();
     flashCtl.autoFlag = true;
     if(false == checkStatus() || false == checkConnect() || false == checkCurrentFile())
     {
@@ -276,7 +284,8 @@ void MainWindow::open()
     if(flashCtl.fileSize > mtpsize)
     {
 //        QMessageBox::information(NULL,QStringLiteral("通知！"),QStringLiteral("仅显示前64KB数据！"),QStringLiteral("确定"));
-        QMessageBox::information(NULL,QStringLiteral("Notice！"),QStringLiteral("Only display 64KB data！"),QStringLiteral("Confirm"));
+//        QMessageBox::information(NULL,QStringLiteral("Notice！"),QStringLiteral("Only display 64KB data！"),QStringLiteral("Confirm"));
+        ui->console->LOGI("Notice！Only display 64KB data！\n");
         display_size = mtpsize;
     } else
     {
@@ -440,7 +449,8 @@ void MainWindow::about()
 //    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.3\nTime    ：2023-04-13"),QStringLiteral("Confirm"));
 //    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.4\nTime    ：2023-04-17"),QStringLiteral("Confirm"));
 //    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.5\nTime    ：2023-05-08"),QStringLiteral("Confirm"));
-    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.6\nTime    ：2023-07-25"),QStringLiteral("Confirm"));
+//    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.6\nTime    ：2023-07-25"),QStringLiteral("Confirm"));
+    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.7\nTime    ：2023-07-25"),QStringLiteral("Confirm"));
 }
 
 void MainWindow::help()
@@ -931,7 +941,7 @@ bool MainWindow::checkStatus()
     //recover filesize value
     flashCtl.fileSize = flashCtl.currentfileSize;
 
-    if(flashCtl.proj == 0)
+    if(flashCtl.proj == PEP)
     {
         dwLegth  = filesize64 + ceil((float)(mtpoffset) / 8);
         overSize = STATION_SDIO_MTP_WIDTH_IN_BYTE;
@@ -970,7 +980,7 @@ bool MainWindow::checkConnect()
     BOOL ft_status = true;
     BYTE ft_connect_count = 0;
     static time_t ltime;
-
+    ft_close();
     ft_status = ft_dev_init(ft_freq);
     ft_status &= ft_close();
 
@@ -1019,7 +1029,7 @@ bool MainWindow::checkConnect()
     ft_connect_count = 0;
     while(ft_connect_count < 3)
     {
-        flashCtl.connectStatus = (flashCtl.proj == 0) ? chipConnect() : true;
+        flashCtl.connectStatus = (flashCtl.proj == PEP) ? chipConnect() : true;
 //        ui->console->LOGI( "Start connecting to soc @ %d\n", ft_connect_count);
 //        flashCtl.connectStatus = true;
         if (true == flashCtl.connectStatus) {
@@ -1059,12 +1069,12 @@ void MainWindow::consoleInit()
     qf.setPointSize(12);
     //qf.setFamily("sans-serif");
 #ifdef _WIN32
-    qf.setFamily("Source Code Pro");//字体
+    qf.setFamily("Source Code Pro");
 #else
     qf.setFamily("Liberation Mono");
 #endif
     qf.setBold(true);
-    //qf.setPixelSize(18);//文字像素大小
+    //qf.setPixelSize(18);
     //qf.setStyle(QFont::StyleNormal);
     ui->textEdit->setFont(qf);
     ui->console->setFont(qf);
@@ -1179,6 +1189,8 @@ void MainWindow::consoleDebug(const QByteArray &data)
         }
 
         if ((tokenQ.size() == 1) && (tokenQ[0] == "debug")) {
+            RvFlashReadCfg();
+            ft_close();
             if(ft_dev_init(ft_freq)) {
                 cmd_debug = true;
             } else {
@@ -1197,7 +1209,7 @@ void MainWindow::consoleDebug(const QByteArray &data)
             rvStatus  = ft_open();
             if ((tokenQ.size() == 1) && (tokenQ[0] == "reset")) {
                 process_reset();
-                if(flashCtl.proj == 1) {
+                if(flashCtl.proj != PEP) {
                     sysHoldReset();
                     usleep(50000);
                     sysReleaseReset();
@@ -1211,6 +1223,57 @@ void MainWindow::consoleDebug(const QByteArray &data)
                 ui->console->LOGI("This is Help Info\n");
             } else if ((tokenQ[0] == "quit") || (tokenQ[0] == "q") || (tokenQ[0] == "exit")) {
                 cmd_debug = false;
+            } else if ((tokenQ[0] == "fe_pc")) {
+                uint64_t pcgen_pc[2];
+                uint64_t inst_pc;
+                uint64_t addr;
+                addr        = 0xf0000000;
+                pcgen_pc[0] = rv_do_read(addr, (ULONGLONG*)&pcgen_pc[0]);
+                pcgen_pc[1] = rv_do_read(addr + 0x4, (ULONGLONG*)&pcgen_pc[1]);
+                inst_pc     = (pcgen_pc[1] << 32) | pcgen_pc[0];
+                ui->console->LOGI("Do Read to Addr 0x%llx, Got Data 0x%llx\n", addr, inst_pc);
+            } else if ((tokenQ[0] == "be_pc")) {
+                uint64_t data = 0;
+                uint64_t addr_lo = 0xf0020010;
+                uint64_t addr_hi;
+                addr_hi = addr_lo + 0x8;
+                ui->console->LOGI("addr_lo = 0x%llx, addr_hi = 0x%llx\n", addr_lo, addr_hi);
+                for (uint64_t addr = addr_lo; addr <= addr_hi; addr += ((flashCtl.proj == PEP) ? 8 : 4)) {
+                    rvStatus = rv_do_read(addr, (ULONGLONG*)&data);
+
+                    ui->console->LOGI("0x%llx: 0x%08llx\n", addr + 0, (data >>  0) & 0xffffffff);
+                    if(flashCtl.proj == PEP) {
+                        ui->console->LOGI("0x%llx: 0x%08llx\n", addr + 4, (data >> 32) & 0xffffffff);
+                    }
+                }
+            } else if ((tokenQ[0] == "dfx_fe")) {
+                uint64_t data = 0;
+                uint64_t addr_lo = 0xf0000000;
+                uint64_t addr_hi;
+                addr_hi = addr_lo + 0x3c;
+                ui->console->LOGI("addr_lo = 0x%llx, addr_hi = 0x%llx\n", addr_lo, addr_hi);
+                for (uint64_t addr = addr_lo; addr <= addr_hi; addr += ((flashCtl.proj == PEP) ? 8 : 4)) {
+                    rvStatus = rv_do_read(addr, (ULONGLONG*)&data);
+
+                    ui->console->LOGI("0x%llx: 0x%08llx\n", addr + 0, (data >>  0) & 0xffffffff);
+                    if(flashCtl.proj == PEP) {
+                        ui->console->LOGI("0x%llx: 0x%08llx\n", addr + 4, (data >> 32) & 0xffffffff);
+                    }
+                }
+            } else if ((tokenQ[0] == "dfx_be")) {
+                uint64_t data = 0;
+                uint64_t addr_lo = 0xf0020000;
+                uint64_t addr_hi;
+                addr_hi = addr_lo + 0x3c;
+                ui->console->LOGI("addr_lo = 0x%llx, addr_hi = 0x%llx\n", addr_lo, addr_hi);
+                for (uint64_t addr = addr_lo; addr <= addr_hi; addr += ((flashCtl.proj == PEP) ? 8 : 4)) {
+                    rvStatus = rv_do_read(addr, (ULONGLONG*)&data);
+
+                    ui->console->LOGI("0x%llx: 0x%08llx\n", addr + 0, (data >>  0) & 0xffffffff);
+                    if(flashCtl.proj == PEP) {
+                        ui->console->LOGI("0x%llx: 0x%08llx\n", addr + 4, (data >> 32) & 0xffffffff);
+                    }
+                }
             } else if ((tokenQ.size() == 3) && ((tokenQ[0] == "read") || (tokenQ[0] == "r"))) {
                 char * p;
                 uint64_t data = 0;
@@ -1259,7 +1322,7 @@ void MainWindow::consoleDebug(const QByteArray &data)
                 std::string target = tokenQ[3];
                 if (*p == 0) {
                     ui->console->LOGI("addr_lo = 0x%llx, addr_hi = 0x%llx\n", addr_lo, addr_hi);
-                    for (uint64_t addr = addr_lo; addr <= addr_hi; addr += ((flashCtl.proj == 0) ? 8 : 4)) {
+                    for (uint64_t addr = addr_lo; addr <= addr_hi; addr += ((flashCtl.proj == PEP) ? 8 : 4)) {
                         if (target == "rb") {
                           rvStatus = rv_do_read(addr, (ULONGLONG*)&data);
                         } else if (target == "dma") {
@@ -1274,7 +1337,7 @@ void MainWindow::consoleDebug(const QByteArray &data)
                         }
 
                         ui->console->LOGI("0x%llx: 0x%08llx\n", addr + 0, (data >>  0) & 0xffffffff);
-                        if(flashCtl.proj == 0) {
+                        if(flashCtl.proj == PEP) {
                             ui->console->LOGI("0x%llx: 0x%08llx\n", addr + 4, (data >> 32) & 0xffffffff);
                         }
                     }
@@ -1313,54 +1376,102 @@ bool MainWindow::configInit()
 
     fileSize = file.size();//get file size/lenth
 
-    //填充tempBuffer，全0xff
+    //fill tempBuffer，all 0xff
     memset(tempBuffer, 0xff, mtpsize);//fill buffer with 0xff
 
-    //读取数据
+    //read data
     QDataStream readDataStream(&file);
-    readDataStream.readRawData((char*)tempBuffer,fileSize);//读取数据到缓存
+    readDataStream.readRawData((char*)tempBuffer,fileSize);//read data to tempBuffer
 #ifdef _WIN32
     for (int i = 0; i < fileSize; i++) {
        if (std::strncmp(&tempBuffer[i], "SPEED=", 6) == 0) {
-         ft_freq = std::atoi(&tempBuffer[i] + 6);
-       } else if (std::strncmp(&tempBuffer[i], "WAITTIME=", 9) == 0) {
-         ft_wait_time = std::atoi(&tempBuffer[i] + 9);
+            rvCfgInfo.speed = std::atoi(&tempBuffer[i] + 6);
+       } else if (std::strncmp(&tempBuffer[i], "WDEALY=", 7) == 0) {
+            rvCfgInfo.wdelay = atoi(&tempBuffer[i] + 7);
+       } else if (std::strncmp(&tempBuffer[i], "RDEALY=", 7) == 0) {
+            rvCfgInfo.rdelay = atoi(&tempBuffer[i] + 7);
+       } else if (std::strncmp(&tempBuffer[i], "WDELAY1=", 8) == 0) {
+            rvCfgInfo.wdelay1 = atoi(&tempBuffer[i] + 8);
+       } else if (std::strncmp(&tempBuffer[i], "RDELAY1=", 8) == 0) {
+            rvCfgInfo.rdelay1 = atoi(&tempBuffer[i] + 8);
+       } else if (std::strncmp(&tempBuffer[i], "WDELAY2=", 8) == 0) {
+            rvCfgInfo.wdelay2 = atoi(&tempBuffer[i] + 8);
+       } else if (std::strncmp(&tempBuffer[i], "RDELAY2=", 8) == 0) {
+            rvCfgInfo.rdelay2 = atoi(&tempBuffer[i] + 8);
        } else if (std::strncmp(&tempBuffer[i], "PROJ=", 5) == 0) {
-         flashCtl.proj = std::atoi(&tempBuffer[i] + 5);
+            rvCfgInfo.proj = std::atoi(&tempBuffer[i] + 5);
        } else if (std::strncmp(&tempBuffer[i], "PRODUCT=", 8) == 0) {
-         productBuffer = std::strtok(&tempBuffer[i] + 8, " \r\n");
-         std::strncpy(ft_product, productBuffer, strlen(productBuffer));
-         ui->console->LOGI("Config Product   @ %s\r\n",ft_product);
+            productBuffer = std::strtok(&tempBuffer[i] + 8, " \r\n");
+            strncpy(rvCfgInfo.product, productBuffer, strlen(productBuffer));
        }
      }
 #else
     for (int i = 0; i < fileSize; i++) {
        if (strncmp(&tempBuffer[i], "SPEED=", 6) == 0) {
-         ft_freq = atoi(&tempBuffer[i] + 6);
-       } else if (strncmp(&tempBuffer[i], "WAITTIME=", 9) == 0) {
-         ft_wait_time = atoi(&tempBuffer[i] + 9);
+            rvCfgInfo.speed = atoi(&tempBuffer[i] + 6);
+       } else if (strncmp(&tempBuffer[i], "WDELAY=", 7) == 0) {
+            rvCfgInfo.wdelay = atoi(&tempBuffer[i] + 7);
+       } else if (strncmp(&tempBuffer[i], "RDELAY=", 7) == 0) {
+            rvCfgInfo.rdelay = atoi(&tempBuffer[i] + 7);
+       } else if (strncmp(&tempBuffer[i], "WDELAY1=", 8) == 0) {
+            rvCfgInfo.wdelay1 = atoi(&tempBuffer[i] + 8);
+       } else if (strncmp(&tempBuffer[i], "RDELAY1=", 8) == 0) {
+            rvCfgInfo.rdelay1 = atoi(&tempBuffer[i] + 8);
+       } else if (strncmp(&tempBuffer[i], "WDELAY2=", 8) == 0) {
+            rvCfgInfo.wdelay2 = atoi(&tempBuffer[i] + 8);
+       } else if (strncmp(&tempBuffer[i], "RDELAY2=", 8) == 0) {
+            rvCfgInfo.rdelay2 = atoi(&tempBuffer[i] + 8);
        } else if (strncmp(&tempBuffer[i], "PROJ=", 5) == 0) {
-         flashCtl.proj = atoi(&tempBuffer[i] + 5);
+            rvCfgInfo.proj = atoi(&tempBuffer[i] + 5);
        } else if (strncmp(&tempBuffer[i], "PRODUCT=", 8) == 0) {
-         productBuffer = strtok(&tempBuffer[i] + 8, " \r\n");
-         strncpy(ft_product, productBuffer, strlen(productBuffer));
-         ui->console->LOGI("Config Product   @ %s\r\n",ft_product);
+            productBuffer = strtok(&tempBuffer[i] + 8, " \r\n");
+            strncpy(rvCfgInfo.product, productBuffer, strlen(productBuffer));
        }
-     }
+    }
 #endif
-    ui->console->LOGI(QString(QStringLiteral("Config Speed     @ %dKHz\n")).toStdString().data(),ft_freq);//rvlink/test io clk frequency
-    ui->console->LOGI(QString(QStringLiteral("Config Gap       @ %dus\n")).toStdString().data(),ft_wait_time);//stable time of read data
-    if(flashCtl.proj == 0)
-    {
-       configMsg = "Config Proj      @ PEP\n";
-    }
-    else
-    {
-       configMsg = "Config Proj      @ 506\n";
-    }
-    ui->console->LOGI(configMsg);//stable time of read data
 
-    if(flashCtl.proj == 0)
+    // update PEP speed <= Freq2500(2500KHz)
+    rvCfgInfo.speed = (rvCfgInfo.proj != PEP) ? rvCfgInfo.speed : (rvCfgInfo.speed > Freq2500) ? Freq2500 : rvCfgInfo.speed;
+    // save rvlink config to rvCurrentCfgInfo
+    rvCurrentCfgInfo = rvCfgInfo;
+    // update rvCurrentCfgInfo.ft_wdelay, rvCurrentCfgInfo.ft_rdelay
+    RvFlashCalcDelay();
+
+    // update comboBoxFreq text
+    QString devFreqQstring;
+    devFreqQstring = devFreqQstring.sprintf("%d",ft_freq);
+    ui->comboBoxFreq->setCurrentText(devFreqQstring);
+
+    // initial rvlink config
+    strncpy(ft_product, rvCurrentCfgInfo.product, strlen(rvCurrentCfgInfo.product)); // init ft_product
+    RvFlashCurtCfg();
+    flashCtl.proj    = rvCurrentCfgInfo.proj;  // init project
+
+    // print config info
+    ui->console->LOGI("Config Product   @ %s\r\n",ft_product);
+    ui->console->LOGI(QString(QStringLiteral("Config Speed     @ %dKHz\n")).toStdString().data(),ft_freq);//rvlink/test io clk frequency
+    ui->console->LOGI(QString(QStringLiteral("Config WDELAY    @ %dus\n")).toStdString().data(),ft_wdelay);//stable time of write data
+    ui->console->LOGI(QString(QStringLiteral("Config RDELAY    @ %dus\n")).toStdString().data(),ft_rdelay);//stable time of read data
+
+    switch(flashCtl.proj) {
+        case PEP:
+            configMsg = "Config Proj      @ PEP\n";
+            break;
+        case P506:
+            configMsg = "Config Proj      @ 506\n";
+            break;
+        case P600:
+            configMsg = "Config Proj      @ P600\n";
+            break;
+        case P800:
+            configMsg = "Config Proj      @ P800\n";
+            break;
+        default:
+            configMsg = "Config Proj      @ PEP\n";
+    }
+    ui->console->LOGI(configMsg);//initial proj
+
+    if(flashCtl.proj == PEP)
     {
 //        ui->pushButtonConnect->setEnabled(true);
         ui->pushButtonRead->setEnabled(true);
@@ -1402,6 +1513,37 @@ bool MainWindow::configInit()
     }
 
     return true;
+}
+
+void MainWindow::RvFlashReadCfg()
+{
+    ft_freq   = (rvCurrentCfgInfo.speed < Freq2000) ? rvCurrentCfgInfo.speed : Freq2000;
+    ft_wdelay = rvCfgInfo.wdelay;
+    ft_rdelay = rvCfgInfo.rdelay;
+}
+
+void MainWindow::RvFlashCurtCfg()
+{
+    // recover rvCurrentCfgInfo with rvCfgInfo
+    ft_freq   = rvCurrentCfgInfo.speed;
+    ft_wdelay = rvCurrentCfgInfo.wdelay;
+    ft_rdelay = rvCurrentCfgInfo.rdelay;
+}
+
+void MainWindow::RvFlashCalcDelay()
+{
+    if(rvCurrentCfgInfo.speed <= Freq2500) {
+        rvCurrentCfgInfo.wdelay = rvCfgInfo.wdelay;
+        rvCurrentCfgInfo.rdelay = rvCfgInfo.rdelay;
+    }
+    else if(rvCurrentCfgInfo.speed <= Freq5000) {
+        rvCurrentCfgInfo.wdelay = rvCfgInfo.wdelay1;
+        rvCurrentCfgInfo.rdelay = rvCfgInfo.rdelay1;
+    }
+    else {
+        rvCurrentCfgInfo.wdelay = rvCfgInfo.wdelay2;
+        rvCurrentCfgInfo.rdelay = rvCfgInfo.rdelay2;
+    }
 }
 
 void MainWindow::availableDevs(rvDevInfo* rvDev, BYTE* rvDevNum)
@@ -1465,23 +1607,98 @@ void MainWindow::fillPortInfo()
         devIndex = devIndex.sprintf("%d",rvPortInfo[i].devIndex);
         ui->comboBoxPort->addItem(QString(rvPortInfo[i].serialNumber).append("_dev").append(devIndex));
     }
-    ui->comboBoxPort->addItem(tr("Custom"));
+//    ui->comboBoxPort->addItem(tr("Custom"));
+}
+
+void MainWindow::fillFreqInfo()
+{
+    QString devFreqQstring;
+    ui->comboBoxFreq->setInsertPolicy(QComboBox::NoInsert);
+    ui->comboBoxFreq->addItem(QString("1000"), MainWindow::Freq1000);
+    ui->comboBoxFreq->addItem(QString("2000"), MainWindow::Freq2000);
+    ui->comboBoxFreq->addItem(QString("2500"), MainWindow::Freq2500);
+    ui->comboBoxFreq->addItem(QString("4000"), MainWindow::Freq4000);
+    ui->comboBoxFreq->addItem(QString("5000"), MainWindow::Freq5000);
+    ui->comboBoxFreq->addItem(QString("6000"), MainWindow::Freq6000);
+    ui->comboBoxFreq->addItem(QString("7000"), MainWindow::Freq7000);
+    ui->comboBoxFreq->addItem(QString("8000"), MainWindow::Freq8000);
+    ui->comboBoxFreq->addItem(tr("Custom"));
+
+    devFreqQstring = devFreqQstring.sprintf("%d",ft_freq);
+    ui->comboBoxFreq->setCurrentText(devFreqQstring);
+}
+
+void MainWindow::on_comboBoxFreq_activated(int index)
+{
+    bool ok;
+    QString devFreqQstring;
+    DWORD   devFreq;
+    devFreqQstring          = ui->comboBoxFreq->currentText();
+    devFreq                 = devFreqQstring.toInt(&ok,10);
+    const bool isCustomPath = (devFreqQstring == "Custom");
+    ui->comboBoxFreq->setEditable(isCustomPath);
+    if (isCustomPath)
+    {
+        ui->comboBoxFreq->clearEditText();
+    }
+    if(devFreq > 0)
+    {
+        rvCurrentCfgInfo.speed = devFreq;
+        RvFlashCalcDelay();
+    }
+    RvFlashCurtCfg();
+    ui->console->LOGI("Config Speed     @ %dKHz\n", ft_freq);
+    ui->console->LOGI("Config WDELAY    @ %dus\n", ft_wdelay);
+    ui->console->LOGI("Config RDELAY    @ %dus\n", ft_rdelay);
+}
+
+void MainWindow::on_comboBoxFreq_editTextChanged(const QString &)
+{
+    bool ok;
+    QString devFreqQstring;
+    DWORD   devFreq;
+    devFreqQstring   = ui->comboBoxFreq->currentText();
+    devFreq          = devFreqQstring.toInt(&ok,10);
+    if((devFreq > Freq1000) && (devFreq < 10000) && (devFreq != currentFreq))
+    {
+        currentFreq = devFreq;
+    }
+    if(devFreq > 0)
+    {
+        rvCurrentCfgInfo.speed = devFreq;
+        RvFlashCalcDelay();
+    }
+    RvFlashCurtCfg();
+}
+
+// update port infomation if MouseButtonPress happened
+bool MainWindow::eventFilter(QObject *obj, QEvent *event)
+{
+    BYTE currentIndex;
+    if(obj == ui->comboBoxPort)
+    {
+        if(event->type() == QEvent::MouseButtonPress)
+        {// press mouse event
+            currentIndex = ui->comboBoxPort->currentIndex();
+            availableDevs(rvPortInfo, &rvDevNum);
+            ui->comboBoxPort->clear();
+            fillPortInfo();
+            //    ui->pushButtonActive->setIcon(qicon.fromTheme("media-record"));
+            ui->pushButtonActive->setIcon(QIcon(":/image/disconnect.png"));
+            ui->pushButtonActive->setIconSize(QSize(26, 26));
+            ui->comboBoxPort->setCurrentIndex(currentIndex);
+//            ui->console->LOGI("comboBoxPort pressed!\r");
+        }
+    }
+    return QWidget::eventFilter(obj, event);
 }
 
 void MainWindow::on_comboBoxPort_activated(int index)
 {
-    BYTE currentIndex;
-    currentIndex = ui->comboBoxPort->currentIndex();
-    availableDevs(rvPortInfo, &rvDevNum);
-    ui->comboBoxPort->clear();
-    fillPortInfo();
-    QIcon qicon;
-//    ui->pushButtonActive->setIcon(qicon.fromTheme("media-record"));
-    ui->pushButtonActive->setIcon(QIcon(":/image/disconnect.png"));
-    ui->pushButtonActive->setIconSize(QSize(26, 26));
-    ui->comboBoxPort->setCurrentIndex(currentIndex);
+    on_pushButtonActive_clicked();
 }
 
+// apply config
 void MainWindow::on_pushButtonActive_clicked()
 {
     bool ok;
@@ -1508,7 +1725,6 @@ void MainWindow::on_pushButtonActive_clicked()
         }
     }
     ft_dev_index  = devStr.toInt(&ok,10);
-    QIcon qicon;
 //    ui->pushButtonActive->setIcon(qicon.fromTheme("media-playback-start"));
     ui->pushButtonActive->setIcon(QIcon(":/image/connect.png"));
     ui->pushButtonActive->setIconSize(QSize(30, 30));
@@ -1521,7 +1737,7 @@ void MainWindow::RvFlashInit()
 
     configInit();
 
-    if(flashCtl.proj == 1)
+    if(flashCtl.proj != PEP)
     {
         flashCtl.address = 0x80000000;
     }
@@ -1540,11 +1756,12 @@ void MainWindow::RvFlashInit()
 
 //    mstimerInit();
     ui->pushButtonActive->setToolTip("apply");
-    QIcon qicon;
 //    ui->pushButtonActive->setIcon(qicon.fromTheme("media-record"));
     ui->pushButtonActive->setIcon(QIcon(":/image/disconnect.png"));
     ui->pushButtonActive->setIconSize(QSize(26, 26));
     availableDevs(rvPortInfo, &rvDevNum);
     fillPortInfo();
+    on_comboBoxPort_activated(0);
+    fillFreqInfo();
 }
 
