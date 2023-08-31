@@ -450,7 +450,8 @@ void MainWindow::about()
 //    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.4\nTime    ：2023-04-17"),QStringLiteral("Confirm"));
 //    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.5\nTime    ：2023-05-08"),QStringLiteral("Confirm"));
 //    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.6\nTime    ：2023-07-25"),QStringLiteral("Confirm"));
-    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.7\nTime    ：2023-07-25"),QStringLiteral("Confirm"));
+//    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.7\nTime    ：2023-08-30"),QStringLiteral("Confirm"));
+    QMessageBox::information(NULL,QStringLiteral("About"),QStringLiteral("Name   ：RvFlash\nVersion：V1.7a\nTime    ：2023-08-31"),QStringLiteral("Confirm"));
 }
 
 void MainWindow::help()
