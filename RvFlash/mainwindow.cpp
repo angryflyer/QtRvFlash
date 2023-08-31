@@ -1228,8 +1228,8 @@ void MainWindow::consoleDebug(const QByteArray &data)
                 uint64_t inst_pc;
                 uint64_t addr;
                 addr        = 0xf0000000;
-                pcgen_pc[0] = rv_do_read(addr, (ULONGLONG*)&pcgen_pc[0]);
-                pcgen_pc[1] = rv_do_read(addr + 0x4, (ULONGLONG*)&pcgen_pc[1]);
+                rvStatus = rv_do_read(addr, (ULONGLONG*)&pcgen_pc[0]);
+                rvStatus = rv_do_read(addr + 0x4, (ULONGLONG*)&pcgen_pc[1]);
                 inst_pc     = (pcgen_pc[1] << 32) | pcgen_pc[0];
                 ui->console->LOGI("Do Read to Addr 0x%llx, Got Data 0x%llx\n", addr, inst_pc);
             } else if ((tokenQ[0] == "be_pc")) {
